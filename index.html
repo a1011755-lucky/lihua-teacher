@@ -1,0 +1,769 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>理化小老師 · 測試版</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--brand:#2563eb;--brand-dark:#1e3a8a;--ok:#15803d;--ok-soft:#dcfce7;--warn:#b45309;--warn-soft:#fef3c7;--bad:#b91c1c;--bad-soft:#fee2e2;}
+*{box-sizing:border-box}
+body{margin:0;font-family:"Microsoft JhengHei","Noto Sans TC",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;font-size:16px}
+header{background:var(--brand-dark);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+header h1{font-size:20px;margin:0}
+.tag{background:#fbbf24;color:#422006;font-size:12px;padding:2px 10px;border-radius:999px;font-weight:700}
+nav{margin-left:auto;display:flex;gap:6px}
+nav button{background:transparent;border:1px solid #93c5fd;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:15px;font-family:inherit}
+nav button.on{background:#fff;color:var(--brand-dark);font-weight:700}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px}
+h2{font-size:18px;margin:0 0 12px}
+.lbl{font-weight:700;display:block;margin-bottom:6px}
+textarea,input[type=text]{width:100%;font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:var(--ink)}
+textarea:focus,input:focus{outline:2px solid #93c5fd;border-color:var(--brand)}
+.chips{margin:10px 0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;color:var(--muted);font-size:14px}
+.chip{border:1px solid #bfdbfe;background:#eff6ff;color:var(--brand-dark);border-radius:999px;padding:3px 12px;cursor:pointer;font:inherit;font-size:14px}
+.row{display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap}
+.row label.grow{flex:1;min-width:220px;font-weight:700}
+.btn{font:inherit;border-radius:10px;padding:9px 18px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}
+.btn:hover{background:#f8fafc}
+.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:700}
+.btn.primary:hover{background:#1d4ed8}
+.btn.small{padding:4px 10px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:default}
+.badges{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.badge{border-radius:999px;padding:4px 12px;font-size:14px;font-weight:700}
+.b-ok{background:var(--ok-soft);color:var(--ok)}
+.b-warn{background:var(--warn-soft);color:var(--warn)}
+.b-info{background:#dbeafe;color:var(--brand-dark)}
+.grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:960px){.grid{grid-template-columns:1fr 1.15fr}.sticky{position:sticky;top:12px;align-self:start}}
+.step{border:1px solid var(--line);border-left:5px solid #cbd5e1;border-radius:10px;padding:10px 14px;margin-bottom:10px;background:#fff;transition:all .25s}
+.step.active{border-left-color:var(--brand);box-shadow:0 2px 10px rgba(37,99,235,.12)}
+.step h3{margin:0 0 4px;font-size:16px;color:var(--brand-dark)}
+.step ul{margin:4px 0;padding-left:22px}
+.formula{font-family:Consolas,"Cambria Math",monospace;background:#f1f5f9;border-radius:8px;padding:6px 10px;margin:6px 0;font-size:17px;overflow-x:auto}
+.answer{font-size:19px;font-weight:700;color:var(--brand-dark);background:#eff6ff;border-radius:8px;padding:6px 12px;display:inline-block;margin-top:6px}
+.diag-ok{border-left-color:var(--ok)!important;background:var(--ok-soft)}
+.diag-warn{border-left-color:var(--warn)!important;background:var(--warn-soft)}
+.diag-bad{border-left-color:var(--bad)!important;background:var(--bad-soft)}
+.stepnav{display:flex;gap:8px;flex-wrap:wrap}
+canvas{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);display:block;background:#fff}
+.hint{color:var(--muted);font-size:14px;margin:8px 0 0}
+.warnbox{background:var(--warn-soft);border-color:#fcd34d}
+.stats{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 16px;min-width:150px}
+.stat b{display:block;font-size:24px;color:var(--brand-dark)}
+.stat span{color:var(--muted);font-size:14px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{border-bottom:1px solid var(--line);padding:8px 6px;text-align:left;vertical-align:top}
+th{color:var(--muted);font-weight:700;font-size:14px}
+.tbl-wrap{overflow-x:auto}
+.st{border-radius:999px;padding:2px 10px;font-size:13px;font-weight:700;white-space:nowrap}
+.st-ok{background:var(--ok-soft);color:var(--ok)}
+.st-wait{background:var(--warn-soft);color:var(--warn)}
+.st-ai{background:#ede9fe;color:#6d28d9}
+.qtext{max-width:420px}
+.muted{color:var(--muted)}
+.ops{display:flex;gap:4px;flex-wrap:wrap}
+.tag.mode{background:#e0e7ff;color:#1e3a8a}
+input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:var(--ink)}
+.errbox{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:8px 12px;margin-bottom:12px}
+.btn.busy{opacity:.6;pointer-events:none}
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 理化小老師</h1><span class="tag">測試版</span><span id="mode" class="tag mode"></span>
+  <nav>
+    <button data-tab="ask" class="on">🙋 問問題</button>
+    <button data-tab="bank">📚 題庫（老師後台）</button>
+  </nav>
+</header>
+
+<main>
+<!-- ===== 問問題 ===== -->
+<section id="tab-ask">
+  <div class="card">
+    <label class="lbl" for="q">題目（可以直接貼學生的問題）</label>
+    <textarea id="q" rows="4" placeholder="例如：一輛汽車以 20 m/s 的速度行駛，看到紅燈後踩煞車，2秒後完全停止。請問煞車期間的加速度為多少 m/s²？"></textarea>
+    <div class="chips">範例題：
+      <button class="chip" data-ex="0">煞車求加速度</button>
+      <button class="chip" data-ex="1">由靜止加速求速度</button>
+      <button class="chip" data-ex="2">減速求時間</button>
+      <button class="chip" data-ex="3">停下求滑行距離</button>
+    </div>
+    <div class="row">
+      <label class="grow">學生算出來的答案（可不填，填了會幫忙找錯在哪）
+        <input type="text" id="stu" inputmode="decimal" placeholder="例如 10">
+      </label>
+      <button id="go" class="btn primary">請老師解答</button>
+    </div>
+  </div>
+
+  <div id="unknown" class="card warnbox" hidden></div>
+
+  <div id="result" hidden>
+    <div id="badges" class="badges"></div>
+    <div class="grid">
+      <div class="card">
+        <h2>一步一步講解</h2>
+        <div id="steps"></div>
+        <div class="stepnav">
+          <button id="prev" class="btn">← 上一步</button>
+          <button id="next" class="btn primary">下一步 →</button>
+          <button id="all" class="btn">全部展開</button>
+        </div>
+      </div>
+      <div class="card sticky">
+        <h2>動畫</h2>
+        <canvas id="cv" width="900" height="420"></canvas>
+        <div class="row" style="margin-top:10px;align-items:center">
+          <button id="play" class="btn primary">▶ 播放動畫</button>
+          <label><input type="checkbox" id="tts"> 🔊 語音朗讀講解</label>
+        </div>
+        <p class="hint">藍色箭頭＝速度，橘色箭頭＝加速度。下方是「速度–時間圖」，藍色面積就是位移。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 題庫 ===== -->
+<section id="tab-bank" hidden>
+  <div id="loginBox" class="card" hidden>
+    <div id="loginOut">
+      <b>老師登入</b><span class="muted">（登入後才能審核、刪除題目；學生不用登入）</span>
+      <div class="row" style="margin-top:8px">
+        <label class="grow">Email<input type="text" id="em" autocomplete="username"></label>
+        <label class="grow">密碼<input type="password" id="pw" autocomplete="current-password"></label>
+        <button id="loginBtn" class="btn primary">登入</button>
+      </div>
+      <p id="loginMsg" class="muted" style="margin:8px 0 0"></p>
+    </div>
+    <div id="loginIn" hidden>👩‍🏫 已登入：<b id="who"></b> <button id="logoutBtn" class="btn small">登出</button></div>
+  </div>
+  <div id="bankErr" class="errbox" hidden></div>
+  <div class="stats" id="stats"></div>
+  <div class="card">
+    <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:10px">
+      <h2 style="margin:0">題庫</h2>
+      <div class="ops">
+        <button id="export" class="btn small">⬇ 匯出備份（JSON）</button>
+        <button id="clear" class="btn small">清空題庫</button>
+      </div>
+    </div>
+    <p class="muted" style="margin-top:0" id="bankWhere"></p>
+    <div class="tbl-wrap"><table>
+      <thead><tr><th>題目</th><th>答案</th><th>被問次數</th><th>學生常見錯誤答案</th><th>狀態</th><th>操作</th></tr></thead>
+      <tbody id="bankRows"></tbody>
+    </table></div>
+  </div>
+</section>
+</main>
+
+<!-- Firebase（雲端題庫）；沒網路或還沒設定時，會自動改用本機題庫 -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="firebase-config.js"></script>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const EXAMPLES = [
+  "一輛汽車以 20 m/s 的速度行駛，看到紅燈後踩煞車，2秒後完全停止。請問煞車期間的加速度為多少 m/s²？",
+  "一台機車由靜止開始，以 3 m/s² 的加速度出發，請問 4 秒後的速度為多少？",
+  "一輛汽車以 15 m/s 行駛，煞車時以 5 m/s² 減速，請問汽車經過多久會停下來？",
+  "一顆球以 10 m/s 的速度在地面滾動，受摩擦力影響，5 秒後停止。請問滑行距離為多少公尺？"
+];
+const NAMES = {v0:"初速 v₀", v:"末速 v", a:"加速度 a", t:"時間 t", s:"位移 s"};
+const SYM = {v0:"v₀", v:"v", a:"a", t:"t", s:"s"};
+const UNIT = {v0:"m/s", v:"m/s", a:"m/s²", t:"s", s:"m"};
+
+/* ---------- 數字格式 ---------- */
+function fmt(x){
+  if(typeof x!=="number"||!isFinite(x)) return "?";
+  let r = Math.round(x*1000)/1000; if(Object.is(r,-0)) r = 0;
+  return (r<0?"−":"") + String(Math.abs(r));
+}
+const par = x => x<0 ? "("+fmt(x)+")" : fmt(x);
+const approx = (a,b) => Math.abs(a-b) <= Math.max(0.011, Math.abs(b)*0.01);
+
+/* ---------- 題目辨識 ---------- */
+function normalize(t){
+  return t.replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+    .replace(/．/g,".").replace(/／/g,"/").replace(/[－−]/g,"-")
+    .replace(/ｍ/g,"m").replace(/ｓ/g,"s").replace(/\s+/g," ");
+}
+const NUM = "(-?\\d+(?:\\.\\d+)?)";
+function parseQuestion(raw){
+  let full = normalize(raw);
+  // 學生在題目裡自己寫的答案，例如「我算出來是 10」
+  let stu = null;
+  const sm = full.match(/算出(?:來)?(?:的答案)?(?:是|為|得)?\s*(-?\d+(?:\.\d+)?)/);
+  if(sm) stu = +sm[1];
+  // 去掉「參考解題 SOP」「易錯陷阱」等補充說明
+  let text = full.split(/【\s*(?:參考|易錯|解題)/)[0];
+  const q = {v0:null, v:null, a:null, t:null, s:null};
+  const notes = [];
+  let rest = text;
+  const accs=[], vels=[], times=[], dists=[];
+  rest = rest.replace(new RegExp(NUM+"\\s*(?:m\\/s\\^?2|m\\/s²|m\\/s\\/s|公尺\\/秒\\^?2|公尺\\/秒²|公尺\\/秒平方|公尺每秒平方)","gi"), (_,n)=>{accs.push(+n); return " ";});
+  rest = rest.replace(new RegExp(NUM+"\\s*(km\\/h|公里\\/小時|m\\/s|公尺\\/秒|公尺每秒)","gi"), (_,n,u)=>{
+    let x = +n;
+    if(/km|公里/i.test(u)){ x = x/3.6; notes.push(`${n} ${u} 要先換成 m/s：${n} ÷ 3.6 = ${fmt(x)} m/s`); }
+    vels.push(x); return " ";
+  });
+  rest = rest.replace(new RegExp(NUM+"\\s*(秒鐘|秒|sec|s(?![a-z]))","gi"), (_,n)=>{times.push(+n); return " ";});
+  rest = rest.replace(new RegExp(NUM+"\\s*(公尺|m(?![a-z\\/]))","gi"), (_,n)=>{dists.push(+n); return " ";});
+
+  const fromRest = /(由|從)靜止|靜止(開始|出發|起動|啟動)/.test(text);
+  const stops = /停(止|下|住|了)|煞停|靜止下來/.test(text);
+  const decel = /煞車|剎車|減速|變慢/.test(text);
+  if(fromRest){ q.v0 = 0; notes.push("「由靜止開始」→ 初速 v₀ = 0"); }
+  if(stops){ q.v = 0; notes.push("「停下來／完全停止」→ 末速 v = 0"); }
+  let vi = 0;
+  if(q.v0===null && vels[vi]!==undefined) q.v0 = vels[vi++];
+  if(q.v===null && vels[vi]!==undefined) q.v = vels[vi++];
+  if(accs.length){
+    q.a = accs[0];
+    if(decel && q.a>0){ q.a = -q.a; notes.push(`「煞車／減速」→ 加速度和前進方向相反，所以是負的：a = ${fmt(q.a)} m/s²`); }
+  }
+  if(times.length) q.t = times[0];
+  if(dists.length) q.s = dists[0];
+
+  // 要求的是什麼
+  const idx = Math.max(text.lastIndexOf("請問"), text.lastIndexOf("求"), text.lastIndexOf("則"));
+  const ask = idx>=0 ? text.slice(idx) : text.split(/[，。,]/).slice(-2).join("");
+  let target = null;
+  if(/加速度/.test(ask)) target = "a";
+  else if(/位移|距離|多遠|滑行|移動了?多少|跑了?多少|走了?多少/.test(ask)) target = "s";
+  else if(/時間|多久|幾秒|多少秒/.test(ask)) target = "t";
+  else if(/初速/.test(ask)) target = "v0";
+  else if(/末速|速度|速率|多快/.test(ask)) target = "v";
+  if(target) q[target] = null;
+  return {q, target, notes, stu, decel, stops, fromRest};
+}
+
+/* ---------- 解題 ---------- */
+const RULES = [
+  {out:"a", need:["v0","v","t"], ok:k=>k.t!==0, f:k=>(k.v-k.v0)/k.t,
+   formula:"a = (v − v₀) ÷ t", sub:k=>`a = (${fmt(k.v)} − ${par(k.v0)}) ÷ ${par(k.t)}`,
+   why:"加速度 ＝「速度的變化」÷「花的時間」。速度的變化一定是 <b>末速 − 初速</b>（後面的減前面的）。"},
+  {out:"v", need:["v0","a","t"], f:k=>k.v0+k.a*k.t,
+   formula:"v = v₀ + a × t", sub:k=>`v = ${fmt(k.v0)} + ${par(k.a)} × ${par(k.t)}`,
+   why:"末速 ＝ 初速 ＋ 這段時間內速度增加（或減少）的量。"},
+  {out:"t", need:["v0","v","a"], ok:k=>k.a!==0, f:k=>(k.v-k.v0)/k.a,
+   formula:"t = (v − v₀) ÷ a", sub:k=>`t = (${fmt(k.v)} − ${par(k.v0)}) ÷ ${par(k.a)}`,
+   why:"由 v = v₀ + a × t 移項：時間 ＝ 速度的變化 ÷ 加速度。"},
+  {out:"v0", need:["v","a","t"], f:k=>k.v-k.a*k.t,
+   formula:"v₀ = v − a × t", sub:k=>`v₀ = ${fmt(k.v)} − ${par(k.a)} × ${par(k.t)}`,
+   why:"由 v = v₀ + a × t 移項。"},
+  {out:"s", need:["v0","v","t"], f:k=>(k.v0+k.v)/2*k.t,
+   formula:"s = (v₀ + v) ÷ 2 × t", sub:k=>`s = (${fmt(k.v0)} + ${par(k.v)}) ÷ 2 × ${par(k.t)}`,
+   why:"速度一直在變，不能直接用「速度 × 時間」。等加速度時，平均速度 ＝ (初速 ＋ 末速) ÷ 2，位移 ＝ 平均速度 × 時間。"},
+  {out:"s", need:["v0","a","t"], f:k=>k.v0*k.t+0.5*k.a*k.t*k.t,
+   formula:"s = v₀ × t + ½ × a × t²", sub:k=>`s = ${fmt(k.v0)} × ${par(k.t)} + ½ × ${par(k.a)} × ${par(k.t)}²`,
+   why:"等加速度運動的位移公式。"},
+  {out:"s", need:["v0","v","a"], ok:k=>k.a!==0, f:k=>(k.v*k.v-k.v0*k.v0)/(2*k.a),
+   formula:"v² = v₀² + 2 × a × s", sub:k=>`s = (${par(k.v)}² − ${par(k.v0)}²) ÷ (2 × ${par(k.a)})`,
+   why:"題目沒給時間，就用這條不含 t 的公式。"},
+  {out:"a", need:["v0","v","s"], ok:k=>k.s!==0, f:k=>(k.v*k.v-k.v0*k.v0)/(2*k.s),
+   formula:"v² = v₀² + 2 × a × s", sub:k=>`a = (${par(k.v)}² − ${par(k.v0)}²) ÷ (2 × ${par(k.s)})`,
+   why:"題目沒給時間，就用這條不含 t 的公式。"},
+  {out:"t", need:["v0","v","s"], ok:k=>k.v0+k.v!==0, f:k=>2*k.s/(k.v0+k.v),
+   formula:"s = (v₀ + v) ÷ 2 × t", sub:k=>`t = 2 × ${par(k.s)} ÷ (${fmt(k.v0)} + ${par(k.v)})`,
+   why:"位移 ＝ 平均速度 × 時間，移項求時間。"}
+];
+function solve(q, target){
+  const k = {...q}, steps = [];
+  const has = x => typeof k[x]==="number" && isFinite(k[x]);
+  const can = r => !has(r.out) && r.need.every(has) && (!r.ok || r.ok(k));
+  const apply = (r, rec) => { const sub = r.sub(k); k[r.out] = r.f(k); if(rec) steps.push({...r, subText:sub, val:k[r.out]}); };
+  for(let i=0; i<8 && !has(target); i++){
+    const r = RULES.find(r=>r.out===target && can(r)) || RULES.find(r=>r.out!=="s" && can(r)) || RULES.find(can);
+    if(!r) break; apply(r, true);
+  }
+  for(let i=0; i<8; i++){ const r = RULES.find(can); if(!r) break; apply(r, false); }   // 補齊動畫需要的數字
+  return {k, steps, ok: has(target)};
+}
+
+/* ---------- 找學生錯在哪 ---------- */
+function diagnose(target, k, x){
+  const c = k[target];
+  if(approx(x, c)) return {cls:"diag-ok", html:"<b>答對了！👏</b> 你的答案和正確答案一樣。"};
+  const tips = [];
+  if(c!==0 && approx(x, -c)){
+    tips.push(target==="a"
+      ? "大小算對了，但<b>正負號相反</b>。你很可能算成「初速 − 末速」。公式一定是 <b>末速 − 初速</b>（後面的減前面的），照順序代進去，負號會自己出現，不用另外加。"
+      : "大小算對了，但<b>正負號相反</b>。回到第一步，確認哪個方向是正的，再檢查每個數字的正負號。");
+  }
+  if(target==="a"){
+    if(approx(Math.abs(x), Math.abs(k.v-k.v0)) && k.t!==1) tips.push("你算的是「速度的變化」，還要<b>再除以時間</b>才是加速度。");
+    if(approx(Math.abs(x), Math.abs((k.v-k.v0)*k.t)) && k.t!==1) tips.push("速度的變化要<b>除以</b>時間，不是乘以時間。");
+  }
+  if(target==="s"){
+    if(approx(x, k.v0*k.t)) tips.push("你用了「速度 × 時間」，但這只適用在<b>速度不變</b>的時候。這題速度一直在變，要用平均速度 (v₀ + v) ÷ 2 再乘時間。");
+    if(approx(x, k.v0*k.t + k.a*k.t*k.t)) tips.push("位移公式裡 a × t² 前面要乘 <b>½</b>，你可能漏掉了。");
+  }
+  if(target==="v"){
+    if(k.v0!==0 && approx(x, k.a*k.t)) tips.push("你算出的是「增加的速度」，還要<b>加上初速</b>才是末速。");
+  }
+  if(target==="t"){
+    if(k.v!==k.v0 && approx(Math.abs(x), Math.abs(k.a/(k.v-k.v0)))) tips.push("除法上下顛倒了：時間 ＝ 速度的變化 <b>÷</b> 加速度。");
+  }
+  if(tips.length) return {cls:"diag-warn", html:tips.join("<br>"), known:true};
+  return {cls:"diag-bad", html:`你的答案 ${fmt(x)} 和正確答案 ${fmt(c)} 不一樣，而且從算式看不出是哪一步錯了。<br>這種情況，正式版會交給 <b>AI 老師</b>分析（測試版還沒接上 AI）。`};
+}
+
+/* ---------- 組講解步驟 ---------- */
+function meaning(target, k){
+  const v = k[target];
+  if(target==="a"){
+    if(v===0) return "加速度是 0，代表速度沒有改變（等速運動）。";
+    const same = (v>0) === (k.v0>0);
+    if(k.v0===0) return `加速度是${v>0?"正":"負"}的，物體會往${v>0?"右（正方向）":"左（負方向）"}越跑越快。`;
+    return same
+      ? "加速度和速度<b>同號</b>（方向相同），所以越來越快。"
+      : `${v<0?"負號":"正號"}代表加速度的方向和前進方向<b>相反</b>，所以越來越慢。<br>小口訣：<b>速度和加速度同號 → 越來越快；異號 → 越來越慢。</b>`;
+  }
+  if(target==="v") return v<0 ? "負號代表最後是往<b>左（負方向）</b>運動。" : v===0 ? "末速為 0，代表最後停下來了。" : `最後以 ${fmt(v)} m/s 往右（正方向）運動。`;
+  if(target==="t") return v<0 ? "算出負的時間，代表題目的條件互相矛盾（例如加速度方向不可能讓它停下來），請再檢查題目。" : `經過 ${fmt(v)} 秒。`;
+  if(target==="s") return v<0 ? `位移是負的，代表最後停在出發點<b>左邊</b> ${fmt(-v)} 公尺。` : `代表最後在出發點<b>右邊</b> ${fmt(v)} 公尺的地方。在速度–時間圖上，這就是藍色那塊的<b>面積</b>。`;
+  return "";
+}
+function buildSteps(p, sol, stuAns){
+  const {q, target, notes} = p, k = sol.k, steps = [];
+  steps.push({title:"第一步：定義正方向", anim:"start",
+    html:"以物體一開始前進的方向為正，也就是<b>向右為正</b>。<br>往右的速度、加速度是正的；往左就是負的。"});
+  const known = ["v0","v","a","t","s"].filter(x=>q[x]!==null)
+    .map(x=>`<li>${NAMES[x]} = ${fmt(q[x])} ${UNIT[x]}</li>`).join("");
+  const noteHtml = notes.length ? `<div class="muted" style="font-size:14px">題目的關鍵字：<ul>${notes.map(n=>`<li>${n}</li>`).join("")}</ul></div>` : "";
+  steps.push({title:"第二步：列出已知數", anim:"start",
+    html:`<ul>${known}<li><b>要求的：${NAMES[target]} = ?</b></li></ul>${noteHtml}`});
+  const calc = sol.steps.map(s=>`<div>${s.why}</div><div class="formula">${s.formula}</div><div class="formula">${s.subText} = <b>${fmt(s.val)} ${UNIT[s.out]}</b></div>`).join("");
+  steps.push({title:"第三步：挑選公式、代入計算", anim:"play", html:calc});
+  steps.push({title:"第四步：答案是什麼意思？", anim:"none",
+    html:`<div class="answer">答案：${SYM[target]} = ${fmt(k[target])} ${UNIT[target]}</div><div style="margin-top:8px">${meaning(target,k)}</div>`});
+  let diag = null;
+  if(stuAns!==null){
+    diag = diagnose(target, k, stuAns);
+    steps.push({title:`你的答案（${fmt(stuAns)}）哪裡不一樣？`, anim:"none", cls:diag.cls, html:diag.html});
+  }
+  return {steps, diag};
+}
+
+/* ---------- 題庫：有設定 Firebase 就存雲端，沒有就存在這台電腦 ---------- */
+const BANK_KEY = "lihua-bank-v1";
+function loadLocal(){ try{ return JSON.parse(localStorage.getItem(BANK_KEY)) || []; }catch(e){ return []; } }
+function saveLocal(b){ try{ localStorage.setItem(BANK_KEY, JSON.stringify(b)); }catch(e){} }
+function hashId(str){   // 同一題 → 同一個編號（雲端就不會重複存）
+  let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+  for(let i=0;i<str.length;i++){ const ch = str.charCodeAt(i); h1 = Math.imul(h1^ch, 2654435761); h2 = Math.imul(h2^ch, 1597334677); }
+  h1 = Math.imul(h1^(h1>>>16), 2246822507) ^ Math.imul(h2^(h2>>>13), 3266489909);
+  h2 = Math.imul(h2^(h2>>>16), 2246822507) ^ Math.imul(h1^(h1>>>13), 3266489909);
+  return "q" + (4294967296*(2097151&h2) + (h1>>>0)).toString(36);
+}
+function bankKey(p){
+  if(!p.target) return "raw|" + normalize(p.raw).replace(/\s/g,"");
+  const r = x => x===null ? "_" : Math.round(x*1000)/1000;
+  return `kin|${p.target}|v0=${r(p.q.v0)}|v=${r(p.q.v)}|a=${r(p.q.a)}|t=${r(p.q.t)}|s=${r(p.q.s)}`;
+}
+function cleanQuestion(raw){
+  // 只留下題目本身，去掉學生的發問與參考解法
+  const m = raw.match(/【題目】[：:]?\s*([\s\S]*?)(?=【|$)/);
+  return (m ? m[1] : raw.split(/【\s*(?:參考|易錯|解題)/)[0]).trim() || raw.trim();
+}
+const Store = (()=>{
+  const cfg = window.FIREBASE_CONFIG || {};
+  let cloud = false, db = null, auth = null;
+  try{
+    if(typeof firebase!=="undefined" && cfg.apiKey && cfg.projectId && !/請貼上/.test(cfg.apiKey)){
+      firebase.initializeApp(cfg); db = firebase.firestore(); auth = firebase.auth(); cloud = true;
+    }
+  }catch(e){ console.warn("Firebase 初始化失敗，改用本機題庫", e); }
+  const col = () => db.collection("questions");
+  const inc = () => firebase.firestore.FieldValue.increment(1);
+  return {
+    cloud, auth,
+    // 記錄一次發問；wrongAns = 學生的錯誤答案（答對或沒填就是 null）
+    async record(entry, wrongAns){
+      entry.question = cleanQuestion(entry.question);
+      const id = hashId(entry.key), now = Date.now();
+      const fresh = () => ({...entry, askCount:1, wrong: wrongAns!==null ? {[wrongAns]:1} : {},
+                            status: entry.solved ? "待審核" : "待 AI 解答", createdAt:now, lastAt:now});
+      if(cloud){
+        const ref = col().doc(id), snap = await ref.get();
+        if(snap.exists){
+          const args = ["askCount", inc(), "lastAt", now];
+          if(wrongAns!==null) args.push(new firebase.firestore.FieldPath("wrong", wrongAns), inc());
+          await ref.update(...args);
+          const r = {id, ...snap.data()}; r.askCount++;
+          return {r, hit:true};
+        }
+        const r = fresh(); await ref.set(r);
+        return {r:{id, ...r}, hit:false};
+      }
+      const bank = loadLocal();
+      let r = bank.find(b=>b.id===id || b.key===entry.key), hit = !!r;
+      if(r){ r.askCount++; r.lastAt = now; if(wrongAns!==null){ r.wrong = r.wrong||{}; r.wrong[wrongAns] = (r.wrong[wrongAns]||0)+1; } }
+      else{ r = {id, ...fresh()}; bank.unshift(r); }
+      saveLocal(bank);
+      return {r, hit};
+    },
+    // 讀整個題庫；雲端模式會即時更新
+    subscribe(cb){
+      if(cloud) return col().onSnapshot(
+        s=>cb(s.docs.map(d=>({id:d.id, ...d.data()})).sort((a,b)=>(b.lastAt||0)-(a.lastAt||0))),
+        err=>cb(null, err));
+      cb(loadLocal()); return null;
+    },
+    async setStatus(id, status){
+      if(cloud) return col().doc(id).update({status});
+      const b = loadLocal(), r = b.find(x=>x.id===id); if(r){ r.status = status; saveLocal(b); }
+    },
+    async remove(id){
+      if(cloud) return col().doc(id).delete();
+      saveLocal(loadLocal().filter(x=>x.id!==id));
+    },
+    async clearAll(ids){
+      if(cloud){ const batch = db.batch(); ids.forEach(id=>batch.delete(col().doc(id))); return batch.commit(); }
+      saveLocal([]);
+    }
+  };
+})();
+
+/* ---------- 講解播放 ---------- */
+let cur = {steps:[], idx:0};
+function renderSteps(){
+  const box = $("#steps");
+  box.innerHTML = cur.steps.map((s,i)=>`<div class="step ${s.cls||""} ${i===cur.idx?"active":""}" ${i>cur.idx?"hidden":""}><h3>${s.title}</h3>${s.html}</div>`).join("");
+  $("#prev").disabled = cur.idx===0;
+  $("#next").disabled = cur.idx>=cur.steps.length-1;
+}
+function goStep(i, opts={}){
+  cur.idx = Math.max(0, Math.min(cur.steps.length-1, i));
+  renderSteps();
+  const s = cur.steps[cur.idx];
+  if(!opts.silent) speak(s.title + "。" + s.html);
+  if(s.anim==="play") playAnim(); else if(s.anim==="start") resetAnim();
+  const el = $("#steps").children[cur.idx];
+  if(el && opts.scroll!==false) el.scrollIntoView({behavior:"smooth", block:"nearest"});
+}
+function toSpeech(html){
+  const d = document.createElement("div"); d.innerHTML = html.replace(/<br>|<\/div>|<\/li>/g,"。");
+  return d.textContent
+    .replace(/m\/s²/g,"公尺每平方秒").replace(/m\/s/g,"公尺每秒")
+    .replace(/v₀/g,"初速").replace(/ − /g," 減 ").replace(/−/g,"負")
+    .replace(/÷/g,"除以").replace(/×/g,"乘以").replace(/=/g,"等於").replace(/½/g,"二分之一").replace(/²/g,"平方")
+    .replace(/[→（）()]/g," ");
+}
+function speak(html){
+  try{
+    if(!$("#tts").checked || !("speechSynthesis" in window)) return;
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(toSpeech(html));
+    u.lang = "zh-TW"; u.rate = 1;
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+/* ---------- 動畫 ---------- */
+const cv = $("#cv"), ctx = cv.getContext("2d"), CH = cv.height;
+let CW = cv.width;
+function fitCanvas(){
+  // 手機螢幕窄時，把畫布內部寬度調小，文字才不會縮得太小
+  const w = cv.parentElement.clientWidth || 900;
+  const nw = Math.max(560, Math.min(900, Math.round(w*1.25)));
+  if(nw!==CW){ CW = nw; cv.width = nw; if(anim.k) setupAnim(anim.k); else drawAnim(); }
+}
+window.addEventListener("resize", ()=>fitCanvas());
+const anim = {k:null, T:0, now:0, raf:0, ok:false};
+function setupAnim(k){
+  cancelAnimationFrame(anim.raf);
+  anim.k = k; anim.now = 0;
+  anim.ok = [k.v0,k.a,k.t].every(x=>typeof x==="number"&&isFinite(x)) && k.t>0 && k.t<1e4;
+  anim.T = anim.ok ? k.t : 0;
+  if(anim.ok){
+    let mn = 0, mx = 0;
+    for(let i=0;i<=100;i++){ const x = posAt(anim.T*i/100); mn = Math.min(mn,x); mx = Math.max(mx,x); }
+    if(mx-mn < 1e-9) mx = mn + 1;
+    anim.minX = mn; anim.maxX = mx;
+    anim.scale = (CW-180)/(mx-mn);
+    anim.origin = 90 - mn*anim.scale;
+    const vEnd = velAt(anim.T);
+    anim.maxV = Math.max(Math.abs(k.v0), Math.abs(vEnd), 0.001);
+  }
+  drawAnim();
+}
+const posAt = t => anim.k.v0*t + 0.5*anim.k.a*t*t;
+const velAt = t => anim.k.v0 + anim.k.a*t;
+function resetAnim(){ cancelAnimationFrame(anim.raf); anim.now = 0; drawAnim(); }
+function playAnim(){
+  if(!anim.ok) return;
+  cancelAnimationFrame(anim.raf);
+  const dur = Math.min(7000, Math.max(3000, anim.T*1000));
+  const start = performance.now();
+  const tick = now => {
+    const f = Math.min(1, (now-start)/dur);
+    anim.now = anim.T*f; drawAnim();
+    if(f<1) anim.raf = requestAnimationFrame(tick);
+  };
+  anim.raf = requestAnimationFrame(tick);
+}
+function arrow(x1, y, x2, color, label){
+  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 6; ctx.lineCap = "round";
+  const len = x2-x1, dir = Math.sign(len);
+  if(Math.abs(len) > 14){
+    ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2-dir*14,y); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2,y); ctx.lineTo(x2-dir*18,y-10); ctx.lineTo(x2-dir*18,y+10); ctx.closePath(); ctx.fill();
+  }else{
+    ctx.beginPath(); ctx.arc(x1,y,5,0,Math.PI*2); ctx.fill();
+  }
+  ctx.font = "bold 17px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "center";
+  ctx.fillText(label, x1 + len/2, y-14);
+}
+function niceStep(range){
+  for(const s of [0.5,1,2,5,10,20,25,50,100,200,250,500,1000]) if(range/s <= 8) return s;
+  return Math.pow(10, Math.ceil(Math.log10(range/8)));
+}
+function drawCar(px, base){
+  ctx.fillStyle = "#dc2626";
+  ctx.beginPath(); ctx.roundRect(px-38, base-34, 76, 22, 6); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(px-20, base-50, 40, 20, 8); ctx.fill();
+  ctx.fillStyle = "#bfdbfe"; ctx.fillRect(px-14, base-46, 12, 12); ctx.fillRect(px+2, base-46, 12, 12);
+  ctx.fillStyle = "#111827";
+  for(const dx of [-22,22]){ ctx.beginPath(); ctx.arc(px+dx, base-10, 9, 0, Math.PI*2); ctx.fill(); }
+  ctx.fillStyle = "#9ca3af";
+  for(const dx of [-22,22]){ ctx.beginPath(); ctx.arc(px+dx, base-10, 3.5, 0, Math.PI*2); ctx.fill(); }
+}
+function drawAnim(){
+  ctx.clearRect(0,0,CW,CH);
+  // 天空與道路
+  const g = ctx.createLinearGradient(0,0,0,190); g.addColorStop(0,"#e0f2fe"); g.addColorStop(1,"#f0f9ff");
+  ctx.fillStyle = g; ctx.fillRect(0,0,CW,190);
+  ctx.fillStyle = "#4b5563"; ctx.fillRect(0,190,CW,30);
+  ctx.strokeStyle = "#f9fafb"; ctx.setLineDash([18,14]); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0,205); ctx.lineTo(CW,205); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#1e3a8a"; ctx.font = "bold 16px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "left";
+  ctx.fillText("正方向（+）→", 16, 26);
+  if(!anim.ok){
+    ctx.fillStyle = "#6b7280"; ctx.font = "18px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "center";
+    ctx.fillText("這題的數字不夠，畫不出動畫", CW/2, 110);
+    return;
+  }
+  const k = anim.k, t = anim.now, x = posAt(t), v = velAt(t);
+  const px = anim.origin + x*anim.scale;
+  // 刻度
+  const step = niceStep(anim.maxX-anim.minX);
+  ctx.fillStyle = "#374151"; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
+  for(let m = Math.ceil(anim.minX/step)*step; m <= anim.maxX+1e-9; m += step){
+    const sx = anim.origin + m*anim.scale;
+    ctx.fillRect(sx-1, 220, 2, 7); ctx.fillText(fmt(m)+" m", sx, 242);
+  }
+  ctx.strokeStyle = "#16a34a"; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(anim.origin, 60); ctx.lineTo(anim.origin, 190); ctx.stroke(); ctx.setLineDash([]);
+  ctx.fillStyle = "#16a34a"; ctx.font = "13px 'Microsoft JhengHei',sans-serif"; ctx.fillText("出發點", anim.origin, 54);
+  drawCar(px, 205);
+  // 箭頭
+  const vLen = v/anim.maxV*140;
+  arrow(px, 128, px+vLen, "#2563eb", `v = ${fmt(v)} m/s`);
+  if(k.a!==0 && t < anim.T - 1e-9) arrow(px, 82, px + Math.sign(k.a)*90, "#ea580c", `a = ${fmt(k.a)} m/s²`);
+  else if(k.a!==0){ ctx.fillStyle = "#15803d"; ctx.font = "bold 17px 'Microsoft JhengHei',sans-serif"; ctx.textAlign="center"; ctx.fillText(Math.abs(v)<1e-6 ? "停下來了！" : "結束", px, 82); }
+  // 數據
+  ctx.fillStyle = "#111827"; ctx.font = "bold 16px Consolas,monospace"; ctx.textAlign = "right";
+  ctx.fillText(`t = ${t.toFixed(2)} s   v = ${fmt(v)} m/s   位置 = ${fmt(x)} m`, CW-14, 26);
+  // 速度–時間圖
+  const gx0 = 80, gx1 = CW-30, gy0 = 270, gy1 = CH-30;
+  const vEnd = velAt(anim.T);
+  let vMin = Math.min(0,k.v0,vEnd), vMax = Math.max(0,k.v0,vEnd); if(vMax-vMin<1e-9) vMax = vMin+1;
+  const X = tt => gx0 + (tt/anim.T)*(gx1-gx0);
+  const Y = vv => gy1 - (vv-vMin)/(vMax-vMin)*(gy1-gy0);
+  ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(gx0,gy0-6); ctx.lineTo(gx0,gy1); ctx.moveTo(gx0,Y(0)); ctx.lineTo(gx1+10,Y(0)); ctx.stroke();
+  ctx.fillStyle = "#374151"; ctx.font = "13px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "right";
+  ctx.textAlign = "left"; ctx.fillText("v (m/s)", gx0+6, gy0-10); ctx.textAlign = "right";
+  for(const vv of [...new Set([k.v0, vEnd, 0].map(z=>Math.round(z*1000)/1000))]) ctx.fillText(fmt(vv), gx0-6, Y(vv)+4);
+  ctx.textAlign = "center"; ctx.fillText("0", gx0, Y(0)+16); ctx.fillText(fmt(anim.T)+" s", gx1, Y(0)+16);
+  ctx.textAlign = "right"; ctx.fillText("t (s)", gx1+20, Y(0)-8);
+  // 面積（位移）
+  ctx.fillStyle = "rgba(37,99,235,.18)";
+  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(0),Y(k.v0)); ctx.lineTo(X(t),Y(v)); ctx.lineTo(X(t),Y(0)); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "#cbd5e1"; ctx.setLineDash([6,5]); ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(X(0),Y(k.v0)); ctx.lineTo(X(anim.T),Y(vEnd)); ctx.stroke(); ctx.setLineDash([]);
+  ctx.strokeStyle = "#2563eb"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(X(0),Y(k.v0)); ctx.lineTo(X(t),Y(v)); ctx.stroke();
+  ctx.fillStyle = "#2563eb"; ctx.beginPath(); ctx.arc(X(t),Y(v),6,0,Math.PI*2); ctx.fill();
+  if(t>0){ ctx.fillStyle = "#1e3a8a"; ctx.font = "bold 14px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "center";
+    ctx.fillText(`面積 = 位移 = ${fmt(x)} m`, (X(0)+X(t))/2, (Y(0)+Math.min(Y(k.v0),Y(v)))/2 + 5); }
+}
+
+/* ---------- 主流程 ---------- */
+function bankBadge(saved, hit, r){
+  if(!saved) return `<span class="badge b-warn">⚠ 這次沒存進題庫（${r}）</span>`;
+  return (hit ? `<span class="badge b-ok">✅ 題庫裡已有這題（第 ${r.askCount} 次被問）· 0 token</span>`
+              : `<span class="badge b-info">🆕 新題目，已存進${Store.cloud?"雲端":""}題庫 · 由解題模板算出 · 0 token</span>`) +
+    (r.status==="已審核" ? `<span class="badge b-ok">👩‍🏫 老師已審核</span>` : `<span class="badge b-warn">⏳ 等老師審核</span>`);
+}
+function saveErrText(e){
+  const code = (e && e.code) || "";
+  if(/permission/.test(code)) return "雲端拒絕寫入，可能是安全規則還沒發布";
+  if(/unavailable|network/.test(code)) return "連不上雲端，請檢查網路";
+  return (e && e.message) || "未知錯誤";
+}
+async function ask(){
+  const raw = $("#q").value.trim();
+  if(!raw){ $("#q").focus(); return; }
+  const go = $("#go"); go.classList.add("busy"); go.textContent = "老師思考中…";
+  try{
+    const p = parseQuestion(raw); p.raw = raw;
+    const stuIn = normalize($("#stu").value).match(/-?\d+(?:\.\d+)?/);
+    const stuAns = stuIn ? +stuIn[0] : p.stu;
+    const sol = p.target ? solve(p.q, p.target) : null;
+    const key = bankKey(p);
+    if(!sol || !sol.ok){
+      $("#result").hidden = true;
+      let note = "";
+      try{
+        const {r, hit} = await Store.record({key, question:raw, solved:false, type:"未辨識"}, null);
+        note = `這題已經存進題庫的<b>「待 AI 解答」</b>清單${hit?`（已經被問過 ${r.askCount} 次）`:""}。`;
+      }catch(e){ note = `⚠ 這題沒能存進題庫（${saveErrText(e)}）。`; }
+      $("#unknown").hidden = false;
+      $("#unknown").innerHTML = `<h2>🤔 這題測試版還不會</h2>
+        <p>測試版目前只會<b>「等加速度直線運動」</b>（例如煞車、加速、求滑行距離），而且題目要有數字和單位（m/s、秒、m/s²、公尺）。</p>
+        <p>${note}正式版接上 AI 老師後，就會自動回答，並把答案存起來給下一個學生用。</p>`;
+      return;
+    }
+    $("#unknown").hidden = true;
+    const built = buildSteps(p, sol, stuAns);
+    const correct = built.diag ? built.diag.cls==="diag-ok" : true;
+    const wrongAns = (stuAns!==null && !correct) ? fmt(stuAns) : null;
+    let badge;
+    try{
+      const {r, hit} = await Store.record({key, question:raw, solved:true, type:"直線運動", target:p.target,
+        answer:`${SYM[p.target]} = ${fmt(sol.k[p.target])} ${UNIT[p.target]}`}, wrongAns);
+      badge = bankBadge(true, hit, r);
+    }catch(e){ console.warn(e); badge = bankBadge(false, false, saveErrText(e)); }
+    $("#badges").innerHTML = badge;
+    cur = {steps: built.steps, idx: 0};
+    $("#result").hidden = false;
+    anim.k = sol.k; fitCanvas();
+    setupAnim(sol.k);
+    goStep(0, {scroll:false});
+  }finally{
+    go.classList.remove("busy"); go.textContent = "請老師解答";
+  }
+}
+
+/* ---------- 題庫畫面 ---------- */
+let bankCache = [], bankUnsub = null, isAdmin = false;
+const ADMINS = (window.ADMIN_EMAILS || []).map(s=>s.toLowerCase());
+const canEdit = () => !Store.cloud || isAdmin;
+function loadBankView(){
+  if(!Store.cloud){ Store.subscribe(list=>{ bankCache = list; renderBank(); }); return; }
+  if(bankUnsub) return;   // 雲端模式已經在即時更新
+  bankUnsub = Store.subscribe((list, err)=>{
+    if(err){ $("#bankErr").hidden = false; $("#bankErr").textContent = "讀取雲端題庫失敗：" + saveErrText(err); return; }
+    $("#bankErr").hidden = true; bankCache = list; renderBank();
+  });
+}
+function renderBank(){
+  const bank = bankCache;
+  $("#bankWhere").innerHTML = Store.cloud
+    ? "☁ 題庫存在<b>雲端（Firebase）</b>，所有學生共用，畫面會自動更新。" + (canEdit() ? "" : "　<b>老師登入後</b>才能審核、刪除。")
+    : "💻 題庫目前存在<b>這台電腦的瀏覽器</b>裡（還沒設定雲端）。";
+  $("#clear").hidden = !canEdit();
+  const asks = bank.reduce((s,b)=>s+(b.askCount||0),0);
+  const reused = bank.reduce((s,b)=>s+(b.solved ? (b.askCount||1)-1 : 0),0);
+  const waiting = bank.filter(b=>!b.solved).length;
+  $("#stats").innerHTML = `
+    <div class="stat"><b>${bank.length}</b><span>題庫題數</span></div>
+    <div class="stat"><b>${asks}</b><span>學生總共問了幾次</span></div>
+    <div class="stat"><b>${reused}</b><span>直接從題庫拿答案（省下的 AI 呼叫）</span></div>
+    <div class="stat"><b>${waiting}</b><span>待 AI 解答</span></div>`;
+  if(!bank.length){ $("#bankRows").innerHTML = `<tr><td colspan="6" class="muted">題庫還是空的，先到「問問題」問幾題看看。</td></tr>`; return; }
+  const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+  const edit = canEdit();
+  $("#bankRows").innerHTML = bank.map(b=>{
+    const wrong = Object.entries(b.wrong||{}).sort((x,y)=>y[1]-x[1]).map(([a,n])=>`${esc(a)}（${n} 人）`).join("、") || "<span class='muted'>—</span>";
+    const st = !b.solved ? `<span class="st st-ai">待 AI 解答</span>` : b.status==="已審核" ? `<span class="st st-ok">已審核</span>` : `<span class="st st-wait">待審核</span>`;
+    return `<tr>
+      <td class="qtext">${esc(b.question)}</td>
+      <td>${b.answer ? esc(b.answer) : "<span class='muted'>—</span>"}</td>
+      <td>${b.askCount||0}</td>
+      <td>${wrong}</td>
+      <td>${st}</td>
+      <td><div class="ops">
+        ${edit && b.solved ? `<button class="btn small" data-act="approve" data-id="${b.id}">${b.status==="已審核"?"取消審核":"✔ 審核通過"}</button>` : ""}
+        <button class="btn small" data-act="view" data-id="${b.id}">再看一次</button>
+        ${edit ? `<button class="btn small" data-act="del" data-id="${b.id}">刪除</button>` : ""}
+      </div></td></tr>`;
+  }).join("");
+}
+
+function showTab(name){
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===name));
+  $("#tab-ask").hidden = name!=="ask"; $("#tab-bank").hidden = name!=="bank";
+  if(name==="bank"){ renderBank(); loadBankView(); }
+}
+
+/* ---------- 老師登入（只有雲端模式需要） ---------- */
+$("#mode").textContent = Store.cloud ? "☁ 雲端題庫" : "💻 本機題庫";
+if(Store.cloud){
+  $("#loginBox").hidden = false;
+  Store.auth.onAuthStateChanged(u=>{
+    isAdmin = !!u && ADMINS.includes((u.email||"").toLowerCase());
+    $("#loginOut").hidden = !!u; $("#loginIn").hidden = !u;
+    $("#who").textContent = u ? u.email + (isAdmin ? "" : "（不是管理員帳號，不能審核）") : "";
+    renderBank();
+  });
+  $("#loginBtn").onclick = async ()=>{
+    const msg = $("#loginMsg"); msg.textContent = "登入中…";
+    try{
+      await Store.auth.signInWithEmailAndPassword($("#em").value.trim(), $("#pw").value);
+      $("#pw").value = ""; msg.textContent = "";
+    }catch(e){
+      const c = e.code || "";
+      msg.textContent = /invalid-credential|wrong-password|user-not-found|invalid-email/.test(c) ? "Email 或密碼不對。"
+        : /too-many-requests/.test(c) ? "嘗試太多次，請稍後再試。"
+        : /operation-not-supported|unauthorized-domain/.test(c) ? "用這個網址打開時不能登入（直接雙擊檔案打開不行），請改用網站網址。"
+        : "登入失敗：" + (e.message || c);
+    }
+  };
+  $("#pw").addEventListener("keydown", e=>{ if(e.key==="Enter") $("#loginBtn").click(); });
+  $("#logoutBtn").onclick = ()=>Store.auth.signOut();
+}
+
+/* ---------- 事件 ---------- */
+document.querySelectorAll("nav button").forEach(b=>b.onclick = ()=>showTab(b.dataset.tab));
+document.querySelectorAll(".chip").forEach(c=>c.onclick = ()=>{ $("#q").value = EXAMPLES[+c.dataset.ex]; $("#stu").value = ""; });
+$("#go").onclick = ask;
+$("#q").addEventListener("keydown", e=>{ if(e.key==="Enter" && (e.ctrlKey||e.metaKey)) ask(); });
+$("#next").onclick = ()=>goStep(cur.idx+1);
+$("#prev").onclick = ()=>goStep(cur.idx-1);
+$("#all").onclick = ()=>{ cur.idx = cur.steps.length-1; renderSteps(); document.querySelectorAll(".step").forEach(s=>s.classList.remove("active")); playAnim(); };
+$("#play").onclick = playAnim;
+$("#tts").onchange = ()=>{ if(!$("#tts").checked){ try{ speechSynthesis.cancel(); }catch(e){} } };
+$("#bankRows").onclick = async e=>{
+  const btn = e.target.closest("button[data-act]"); if(!btn) return;
+  const b = bankCache.find(x=>x.id===btn.dataset.id); if(!b) return;
+  const act = btn.dataset.act;
+  if(act==="view"){ showTab("ask"); $("#q").value = b.question; $("#stu").value = ""; ask(); return; }
+  if(!canEdit()) return;
+  try{
+    if(act==="approve") await Store.setStatus(b.id, b.status==="已審核" ? "待審核" : "已審核");
+    if(act==="del"){ if(!confirm("確定要從題庫刪除這題嗎？")) return; await Store.remove(b.id); }
+    loadBankView();
+  }catch(err){ alert("操作失敗：" + saveErrText(err)); }
+};
+$("#export").onclick = ()=>{
+  const blob = new Blob([JSON.stringify(bankCache, null, 2)], {type:"application/json"});
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = "理化題庫備份.json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href), 1000);
+};
+$("#clear").onclick = async ()=>{
+  if(!canEdit() || !confirm("確定要清空整個題庫嗎？這個動作無法復原。")) return;
+  try{ await Store.clearAll(bankCache.map(b=>b.id)); loadBankView(); }catch(err){ alert("清空失敗：" + saveErrText(err)); }
+};
+drawAnim();
+</script>
+</body>
+</html>

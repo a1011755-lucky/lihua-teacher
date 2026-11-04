@@ -1,0 +1,41 @@
+rules_version = '2';
+// 理化小老師 · 雲端題庫的安全規則
+// 貼到 Firebase 主控台 → Firestore Database → 規則 → 發布
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 老師帳號（要和 firebase-config.js 的 ADMIN_EMAILS 一致）
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email in ['a1011755@gmail.com'];
+    }
+
+    match /questions/{id} {
+      // 所有人都可以看題庫（學生要拿之前的解答）
+      allow read: if true;
+
+      // 學生問了新題目 → 可以新增，但格式要對、不能偷偷設成「已審核」
+      allow create: if isAdmin() || (
+        request.resource.data.keys().hasOnly(['key','question','solved','type','target','answer',
+                                                'askCount','wrong','status','createdAt','lastAt'])
+        && request.resource.data.askCount == 1
+        && request.resource.data.status in ['待審核', '待 AI 解答']
+        && request.resource.data.key is string && request.resource.data.key.size() < 3000
+        && request.resource.data.question is string && request.resource.data.question.size() < 3000
+        && request.resource.data.wrong is map && request.resource.data.wrong.size() <= 1
+      );
+
+      // 學生問了舊題目 → 只能把「被問次數」加 1、記錄錯誤答案，其他欄位不能改
+      allow update: if isAdmin() || (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['askCount','lastAt','wrong'])
+        && request.resource.data.askCount == resource.data.askCount + 1
+        && request.resource.data.wrong is map
+        && request.resource.data.wrong.size() <= resource.data.wrong.size() + 1
+        && request.resource.data.wrong.size() <= 100
+      );
+
+      // 只有老師可以刪除
+      allow delete: if isAdmin();
+    }
+  }
+}
