@@ -606,26 +606,35 @@ function rankLessons(raw){
 // 題庫指紋（bank-index.js）：學生問到老師題庫裡的原題 → 拿到標準答案和題型
 const h24 = s => { let h = 0x811c9dc5; for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) & 0xffffff; };
 let BANK = null, BANK_FULL = 0.6, BANK_STEM = 0.7;
+// 題目出處標籤，例如「[90. 基測]」「【97會考】」「(96 學測)」：裡面的數字不是題目的數字
+const EXAM_TAG = /[\[【(（]?\s*\d{2,3}\s*[.．、]?\s*年?\s*(?:基測|會考|學測|指考|統測|特招|模擬考|聯考|段考)[^\]】)）\s]{0,4}[\]】)）]?/g;
 function bankHit(raw){
   if(!window.BANK_INDEX) return null;
   if(!BANK) BANK = BANK_INDEX.map(([t, a, st, full, ns, l])=>({t, a, l, st:new Set(st.split(".")), full:new Set(full.split(".")), ns}));
+  raw = normalize(raw).replace(EXAM_TAG, " ");
   const k = textKey(raw), q = new Set();
   for(let i=0;i<k.length-1;i++) q.add(h24(k.slice(i,i+2)).toString(36));
-  // 數字檢查：題庫題目題幹裡的每個數字，學生的題目裡都要有（數字不一樣就不是同一題）
-  // 只比數字、不比單位：拍照時「公尺」常被認成別的字，但數字通常是對的
-  // 只看題幹（選項裡常有原來的數字）；題幹的數字要和題庫那題一模一樣（多一個、少一個都不行）
-  const qStem = normalize(raw).split(/[\(（]\s*A\s*[\)）]?/)[0];   // 拍照時「(A)」的右括號常不見
-  const qns = (qStem.match(/\d+(?:\.\d+)?/g)||[]).map(Number).sort((a,b)=>a-b).join(",");
-  const numsOk = ns => (ns || "") === qns;
-  const cand = []; let near = 0;
+  // 數字檢查：只比數字、不比單位（拍照時「公尺」常被認成別的字，但數字通常是對的）
+  // 只看題幹（選項裡常有原來的數字）。題庫那題的數字一個都不能少、不能不同；
+  // 頁碼、題號不在題幹裡；出處標籤（基測、會考…）上面已經拿掉
+  const qStem = raw.split(/[\(（]\s*A\s*[\)）]?/)[0];   // 拍照時「(A)」的右括號常不見
+  const qNums = (qStem.match(/\d+(?:\.\d+)?/g)||[]).map(x=>String(+x));
+  const numCheck = ns => {   // 0＝完全一樣，其他＝不同
+    const left = qNums.slice();
+    for(const v of (ns ? ns.split(",") : [])){ const i = left.indexOf(v); if(i<0) return -1; left.splice(i, 1); }
+    return left.length===0 ? 0 : left.length===1 ? 1 : -1;
+  };
+  const cand = []; let near = 0, partial = 0;
   for(const b of BANK){
     let si = 0, fi = 0;
     for(const x of b.st) if(q.has(x)) si++;
     for(const x of b.full) if(q.has(x)) fi++;
-    const c = {b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)};
-    if(numsOk(b.ns)) cand.push(c); else near = Math.max(near, c.stem, c.full);
+    const c = {b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)}, nc = numCheck(b.ns);
+    if(nc===0) cand.push(c);
+    else near = Math.max(near, c.stem, c.full);
+    if(q.size >= 10 && si/q.size >= 0.7 && nc===0) partial++;   // 學生打的字大多在這題裡（題目打太短）
   }
-  if(!cand.length) return near >= 0.75 ? {near:true} : null;
+  if(!cand.length) return near >= 0.75 ? {near:true} : partial ? {partial} : null;
   // 先看整題（含選項）；整題不夠像，才看題幹
   cand.sort((x,y)=>y.full-x.full);
   const f0 = cand[0];
@@ -634,9 +643,9 @@ function bankHit(raw){
     return {type: f0.b.t, ans: f0.b.a, lesson: f0.b.l, sc: f0.full};
   cand.sort((x,y)=>y.stem-x.stem);
   const top = cand[0];
-  if(top.stem < BANK_STEM) return near >= 0.75 && near > top.stem + 0.2 ? {near:true} : null;
+  if(top.stem < BANK_STEM) return near >= 0.75 && near > top.stem + 0.2 ? {near:true} : partial ? {partial} : null;
   // 好幾題題幹一樣（例如「附圖…何者錯誤？」），答案又不同 → 只看題幹分不出來
-  if(cand.some(c=>c!==top && c.stem >= top.stem - 0.03 && c.b.a!==top.b.a)) return null;
+  if(cand.some(c=>c!==top && c.stem >= top.stem - 0.03 && c.b.a!==top.b.a)) return {partial: 2};
   return {type: top.b.t, ans: top.b.a, lesson: top.b.l, sc: top.stem};
 }
 // 題型：同一題、數字不同 → 把學生的數字代進講解和動畫
@@ -807,7 +816,7 @@ function saveErrText(e){
   if(/unavailable|network/.test(code)) return "連不上雲端，請檢查網路";
   return (e && e.message) || "未知錯誤";
 }
-let skipLessonOnce = false;
+let skipLessonOnce = false, skipShortOnce = false;
 async function ask(){
   const raw = $("#q").value.trim();
   if(!raw && !photoData){ $("#q").focus(); return; }
@@ -829,6 +838,9 @@ async function ask(){
     // ① 單元題庫裡有這題 → 用老師準備好的動畫講解
     // ⓪ 老師題庫裡的原題 → 標準答案＋題型講解（模板算得出、而且和標準答案一樣時，用模板的計算過程）
     let bh = skipLessonOnce ? null : bankHit(raw);
+    const tooShort = !!(bh && bh.partial) && !skipShortOnce;   // 很像題庫的題目，但打得太短，分不出是哪一題
+    skipShortOnce = false;
+    if(bh && bh.partial) bh = null;
     // 拍照的題目和題庫某題幾乎一樣、只有數字不同 → 很可能是數字認錯，請學生核對（不直接給答案）
     if(bh && bh.near){
       bh = null;
@@ -894,6 +906,15 @@ async function ask(){
     const key = bankKey(p);
     if(!sol || !sol.ok){
       $("#result").hidden = true; $("#unknown").hidden = true;
+      if(tooShort){
+        $("#unknown").hidden = false;
+        $("#unknown").innerHTML = `<h2>✏️ 題目再打完整一點</h2>
+          <p>老師題庫裡有${bankHit(raw)?.partial>1 ? "好幾題" : ""}和你打的很像的題目，但目前的字太少，分不出是哪一題。</p>
+          <p>請<b>把題目照課本完整打出來（包含 (A)(B)(C)(D) 選項）</b>，或直接按上面的「📷 拍照」拍整題。</p>
+          <p style="margin-bottom:0"><button class="btn small" id="shortGo">不用了，直接請老師解答</button></p>`;
+        $("#shortGo").onclick = ()=>{ skipShortOnce = true; ask(); };
+        return;
+      }
       let rec = null, note = "";
       try{
         rec = await Store.record({key, question:raw, solved:false, type:"未辨識"}, null);
