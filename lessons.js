@@ -71,18 +71,7 @@ window.LESSON_UNITS = [
    mistakes:[{n:360, tip:"速率是「距離 <b>÷</b> 時間」，不是相乘。"},
              {n:324, tip:"km/h 換成 m/s 要 <b>÷ 3.6</b>，你乘了 3.6。"},
              {n:0.011, tip:"除法上下顛倒了：速率 ＝ 距離 ÷ 時間 ＝ 180 ÷ 2。"}]},
-  {id:"u1-13", q:"美國大聯盟投手江文，投出時速144km/hr的伸卡球。請問此球1秒可前進多少公尺 ?(A)50 (B)40 (C)35 (D)30 公尺",
-   ans:"40 公尺，選 (B)", num:40,
-   scene:{type:"motion", graph:"xt", bodies:[{icon:"ball", color:"#dc2626", v0:40, segs:[{t:1, a:0}]}],
-          marks:[{x:0, label:"投手"},{x:18.44, label:"本壘"}], T:1},
-   steps:[
-    {t:"第一步：「時速」是什麼？", anim:"start", h:"時速 144 km/h ＝ <b>1 小時</b>可以前進 144 公里。<br>但題目問的是「<b>1 秒</b>」前進幾「<b>公尺</b>」，單位不一樣，要先換算。"},
-    {t:"第二步：km/h 換成 m/s", anim:"none", h:"1 km/h ＝ 1000 公尺 ÷ 3600 秒，所以 <b>km/h 換成 m/s 要除以 3.6</b>："+F("144 ÷ 3.6 = <b>40 m/s</b>")+"意思是：球每 1 秒前進 40 公尺。"},
-    {t:"第三步：等速運動求距離", anim:"play", h:"題目沒提到加速或減速，當作等速運動："+F("距離 = 速度 × 時間 = 40 × 1 = <b>40 公尺</b>")},
-    {t:"第四步：答案", anim:"end", h:A("40 公尺，選 (B)")+"<div>小知識：投手丘到本壘大約 18.44 公尺，這顆球不到 0.5 秒就到了，打者只有一眨眼的時間反應！</div>"}],
-   mistakes:[{n:144, tip:"144 是「km/h」，要先換成 m/s：144 <b>÷ 3.6</b> ＝ 40 m/s，1 秒才前進 40 公尺。"},
-             {n:518.4, tip:"km/h 換成 m/s 要 <b>÷ 3.6</b>，你乘了 3.6。"},
-             {n:50, tip:"換算時要除以 3.6（不是除以 2.88 或其他數字）：144 ÷ 3.6 ＝ 40。"}]},
+  {id:"u1-13", q:"美國大聯盟投手江文，投出時速144km/hr的伸卡球。請問此球1秒可前進多少公尺 ?(A)50 (B)40 (C)35 (D)30 公尺"},   // 題型：內容在檔案最後的 PARAM
   {id:"u1-07", q:"一隻螞蟻沿直線向右爬了 6 公分，花了 4 秒；接著向左爬 2 公分，又花了 4 秒。請問這 8 秒內螞蟻的平均速率和平均速度各是多少？",
    ans:"平均速率 = 1 cm/s；平均速度 = 0.5 cm/s（向右）", num:1, alt:[0.5],
    scene:{type:"motion", graph:"xt", showPath:true, units:{x:"cm", t:"s", v:"cm/s", a:"cm/s²"},
@@ -298,4 +287,106 @@ window.LESSON_UNITS = [
  ]}
 ]}
 ];
+
+/* ======================================================================
+   題型（數字可以換）：學生問「同一題，但數字不同」時，把他的數字代進來，
+   講解、答案、動畫、常見錯誤全部重新算。
+   vars：從題目抓數字的規則；make(數字)：產生 ans、num、steps、scene、mistakes。
+   題目本身（上面的 q）的數字就是預設值。
+   ====================================================================== */
+const f = (x, d) => { const p = Math.pow(10, d==null ? 3 : d); let r = Math.round(x*p)/p; if(Object.is(r,-0)) r = 0; return (r<0?"−":"") + String(Math.abs(r)); };
+const NUMS = "(\\d+(?:\\.\\d+)?)";
+const RE = s => new RegExp(s.replace(/#/g, NUMS), "i");
+const PARAM = {
+ "u1-13": {   // 時速換算＋等速前進距離
+  vars:{v:RE("#\\s*(?:km\\/hr?|公里\\/小時|公里每小時)"), t:RE("#\\s*秒")},
+  make({v, t}){
+    if(!(v>0 && t>0)) return null;
+    const ms = v/3.6, s = ms*t, plate = 18.44/ms;
+    return {ans:`${f(s)} 公尺`, num:s,
+      scene:{type:"motion", graph:"xt", T:t, bodies:[{icon:"ball", color:"#dc2626", v0:ms, segs:[{t, a:0}]}],
+             marks: s >= 18.44 ? [{x:0, label:"投手"},{x:18.44, label:"本壘"}] : [{x:0, label:"投手"}]},
+      steps:[
+       {t:"第一步：「時速」是什麼？", anim:"start", h:`時速 ${f(v)} km/h ＝ <b>1 小時</b>可以前進 ${f(v)} 公里。<br>但題目問的是「<b>${f(t)} 秒</b>」前進幾「<b>公尺</b>」，單位不一樣，要先換算。`},
+       {t:"第二步：km/h 換成 m/s", anim:"none", h:`1 km/h ＝ 1000 公尺 ÷ 3600 秒，所以 <b>km/h 換成 m/s 要除以 3.6</b>：`+F(`${f(v)} ÷ 3.6 = <b>${f(ms, 2)} m/s</b>`)+`意思是：球每 1 秒前進 ${f(ms, 2)} 公尺。`},
+       {t:"第三步：等速運動求距離", anim:"play", h:"題目沒提到加速或減速，當作等速運動："+F(`距離 = 速度 × 時間 = ${f(ms, 2)} × ${f(t)} = <b>${f(s, 2)} 公尺</b>`)},
+       {t:"第四步：答案", anim:"end", h:A(`${f(s, 2)} 公尺`)+`<div>小知識：投手丘到本壘大約 18.44 公尺，這顆球大約 <b>${f(plate, 2)} 秒</b>就到本壘，打者只有一眨眼的時間反應！</div>`}],
+      mistakes:[{n:v*t, tip:`${f(v)} 是「km/h」，要先換成 m/s：${f(v)} <b>÷ 3.6</b> ＝ ${f(ms, 2)} m/s。`},
+                {n:v*3.6*t, tip:"km/h 換成 m/s 要 <b>÷ 3.6</b>，你乘了 3.6。"}]};
+  }},
+ "u1-01": {   // 單擺週期
+  vars:{n:RE("#\\s*次"), T:RE("#\\s*秒")},
+  make({n, T}){
+    if(!(n>0 && T>0)) return null;
+    const P = T/n, L = 9.8*Math.pow(P/(2*Math.PI), 2);
+    return {ans:`週期 = ${f(P)} 秒`, num:P,
+      scene:{type:"pendulum", items:[{L, label:`擺長約 ${L>=1 ? f(L, 2)+" m" : f(L*100, 1)+" cm"}`}], T:Math.min(P*4, 12)},
+      steps:[
+       {t:"第一步：週期是什麼？", anim:"play", h:"擺錘從一邊擺到另一邊、<b>再回到原來的位置</b>，叫做「來回擺動一次」。<br>來回擺動一次所花的時間，叫做<b>週期</b>。"},
+       {t:"第二步：列出已知數", anim:"none", h:`<ul><li>來回擺動次數 = ${f(n)} 次</li><li>總時間 = ${f(T)} 秒</li><li><b>要求的：週期 = ?</b></li></ul>`},
+       {t:"第三步：代公式計算", anim:"none", h:"週期 ＝ 總時間 ÷ 來回次數"+F(`週期 = ${f(T)} ÷ ${f(n)} = <b>${f(P)} 秒</b>`)},
+       {t:"第四步：為什麼要量很多次？", anim:"none", h:A(`${f(P)} 秒`)+"<div style='margin-top:8px'>只量 1 次的話，按碼錶的反應時間誤差會很大。量很多次再平均，<b>可以減少誤差</b>。</div>"}],
+      mistakes:[{n:n/T, tip:`除法上下顛倒了。週期 ＝ <b>總時間 ÷ 次數</b>（${f(T)} ÷ ${f(n)}）。`},
+                {n:P/2, tip:"你可能把「擺過去」就算一次。週期要「來回」一次：擺過去、再擺回來。"},
+                {n:T*n, tip:"不是相乘，週期 ＝ 總時間 ÷ 次數。"}]};
+  }},
+ "u1-06": {   // 平均速率＋單位換算
+  vars:{h:RE("#\\s*小時"), d:RE("#\\s*公里")},
+  make({h, d}){
+    if(!(h>0 && d>0)) return null;
+    const kmh = d/h, ms = kmh/3.6;
+    return {ans:`${f(kmh, 2)} km/h，相當於 ${f(ms, 2)} m/s`, num:kmh, alt:[ms],
+      scene:{type:"motion", graph:"xt", units:{x:"km", t:"h", v:"km/h", a:"km/h²"}, bodies:[{icon:"car", v0:kmh, segs:[{t:h, a:0}]}]},
+      steps:[
+       {t:"第一步：列出已知數", anim:"start", h:`<ul><li>路徑長 = ${f(d)} 公里</li><li>時間 = ${f(h)} 小時</li></ul>`},
+       {t:"第二步：平均速率", anim:"play", h:"平均速率 ＝ 路徑長 ÷ 時間"+F(`平均速率 = ${f(d)} ÷ ${f(h)} = <b>${f(kmh, 2)} km/h</b>`)},
+       {t:"第三步：換成 m/s", anim:"none", h:"1 km/h ＝ 1000 公尺 ÷ 3600 秒，所以 <b>km/h 換成 m/s 要除以 3.6</b>："+F(`${f(kmh, 2)} ÷ 3.6 = <b>${f(ms, 2)} m/s</b>`)+A(`${f(kmh, 2)} km/h ＝ ${f(ms, 2)} m/s`)+"<div>口訣：km/h → m/s「÷ 3.6」；m/s → km/h「× 3.6」。</div>"}],
+      mistakes:[{n:d*h, tip:"速率是「距離 <b>÷</b> 時間」，不是相乘。"},
+                {n:kmh*3.6, tip:"km/h 換成 m/s 要 <b>÷ 3.6</b>，你乘了 3.6。"},
+                {n:h/d, tip:`除法上下顛倒了：速率 ＝ 距離 ÷ 時間 ＝ ${f(d)} ÷ ${f(h)}。`}]};
+  }},
+ "u1-09": {   // 由靜止加速求加速度
+  vars:{t:RE("#\\s*秒"), v:RE("#\\s*(?:m\\/s|公尺\\/秒)(?!\\s*(?:²|\\^?2|平方))")},
+  make({t, v}){
+    if(!(t>0 && v>0)) return null;
+    const a = v/t;
+    return {ans:`a = ${f(a)} m/s²`, num:a,
+      scene:{type:"motion", graph:"vt", bodies:[{icon:"car", v0:0, segs:[{t, a}]}]},
+      steps:[
+       {t:"第一步：定義正方向", anim:"start", h:"以汽車前進的方向（向右）為正。"},
+       {t:"第二步：列出已知數", anim:"none", h:`<ul><li>由靜止開始 → 初速 v₀ = 0</li><li>末速 v = ${f(v)} m/s</li><li>時間 t = ${f(t)} s</li><li><b>要求的：加速度 a = ?</b></li></ul>`},
+       {t:"第三步：代公式", anim:"play", h:"加速度 ＝ 速度的變化 ÷ 時間"+F("a = (v − v₀) ÷ t")+F(`a = (${f(v)} − 0) ÷ ${f(t)} = <b>${f(a)} m/s²</b>`)},
+       {t:"第四步：答案的意思", anim:"none", h:A(`${f(a)} m/s²`)+`<div>每過 1 秒，速度增加 ${f(a)} m/s。在速度–時間圖上，就是直線的<b>斜率</b>。</div>`}],
+      mistakes:[{n:v*t, tip:"速度的變化要 <b>除以</b> 時間，不是乘以時間。"},
+                {n:t/v, tip:`除法上下顛倒了：a ＝ 速度的變化 ÷ 時間 ＝ ${f(v)} ÷ ${f(t)}。`},
+                {n:v, tip:`${f(v)} m/s 是速度的變化，還要<b>再除以時間</b> ${f(t)} 秒。`}]};
+  }},
+ "u2-12": {   // 圓周運動求速率
+  vars:{r:RE("半徑\\s*#"), T:RE("#\\s*秒")},
+  make({r, T}){
+    if(!(r>0 && T>0)) return null;
+    const c = 2*3.14*r, v = c/T;
+    return {ans:`v = ${f(v)} m/s`, num:v,
+      scene:{type:"circular", r, period:T, center:"pin", T:2*T},
+      steps:[
+       {t:"第一步：繞一圈的距離", anim:"start", h:"圓周長 ＝ 2πr"+F(`2 × 3.14 × ${f(r)} = ${f(c)} m`)},
+       {t:"第二步：速率 ＝ 距離 ÷ 時間", anim:"play", h:`繞一圈花 ${f(T)} 秒（週期 T = ${f(T)} s）：`+F(`v = 2πr ÷ T = ${f(c)} ÷ ${f(T)} = <b>${f(v)} m/s</b>`)},
+       {t:"第三步：答案", anim:"none", h:A(`${f(v)} m/s`)}],
+      mistakes:[{n:c, tip:`${f(c)} m 是一圈的長度，還要 <b>÷ 週期 ${f(T)} 秒</b>。`},
+                {n:3.14*r/T, tip:"圓周長是 2πr（不是 πr）。"}]};
+  }}
+};
+const stripChoices = s => s.replace(/[\(（]\s*[A-Da-d]\s*[\)）]\s*-?\d+(?:\.\d+)?\s*(?:公尺|公分|公里|m\/s|m|秒|s)?/g, " ");
+// 從題目抓出題型需要的數字；缺任何一個就回傳 null
+function readVars(vars, text){
+  const t = stripChoices(text), out = {};
+  for(const k in vars){ const m = t.match(vars[k]); if(!m) return null; out[k] = +m[1]; }
+  return out;
+}
+window.lessonVals = (L, text) => L.vars ? readVars(L.vars, text) : null;
+for(const u of window.LESSON_UNITS) for(const s of u.sections) for(const it of s.items){
+  const P = PARAM[it.id]; if(!P) continue;
+  const def = readVars(P.vars, it.q);
+  Object.assign(it, {vars:P.vars, make:P.make, defaults:def}, P.make(def));
+}
 })();

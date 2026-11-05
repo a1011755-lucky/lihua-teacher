@@ -602,11 +602,24 @@ function rankLessons(raw){
   }).sort((a,b)=>b.sc-a.sc);
 }
 // 回傳 {L}：確定是這題；{pick:[…]}：很像，請學生確認；null：題庫沒有
+// 題型：同一題、數字不同 → 把學生的數字代進講解和動畫
+function instLesson(L, raw){
+  const vals = window.lessonVals ? lessonVals(L, normalize(raw)) : null;
+  if(!vals) return null;
+  const same = L.defaults && Object.keys(vals).every(k=>approx(vals[k], L.defaults[k]));
+  if(same) return L;
+  const made = L.make(vals);
+  if(!made) return null;
+  return Object.assign({}, L, made, {q: cleanQuestion(raw), vals, inst:true});
+}
 function matchLesson(raw){
-  const ok = rankLessons(raw).filter(x=>x.same);
+  const ranked = rankLessons(raw);
+  const ok = ranked.filter(x=>x.same);
   const top = ok[0], second = ok[1];
+  if(top && (top.sc >= 0.42 || (top.sc >= 0.25 && top.sc - (second ? second.sc : 0) >= 0.12))) return {L: top.L};
+  // 數字不一樣，但題型一樣
+  for(const x of ranked.filter(x=>x.L.make && x.sc >= 0.4)){ const I = instLesson(x.L, raw); if(I) return {L: I}; }
   if(!top || top.sc < 0.22) return null;
-  if(top.sc >= 0.42 || (top.sc >= 0.25 && top.sc - (second ? second.sc : 0) >= 0.12)) return {L: top.L};
   return {pick: ok.filter(x=>x.sc >= 0.2).slice(0, 3).map(x=>x.L)};
 }
 function diagLesson(L, x){
@@ -618,7 +631,10 @@ function diagLesson(L, x){
 }
 function showLesson(L, stuAns, extraBadge, scroll){
   const steps = L.steps.map(s=>({title:s.t, html:s.h, anim:s.anim||"none"}));
-  steps[0] = {...steps[0], html:`<div class="muted" style="font-size:14px;margin-bottom:6px">📘 題庫題目：${esc(L.q)}</div>` + steps[0].html};
+  steps[0] = {...steps[0], html:`<div class="muted" style="font-size:14px;margin-bottom:6px">${L.inst ? "📘 題庫題型（已換成你題目的數字）" : "📘 題庫題目"}：${esc(L.q)}</div>` + steps[0].html};
+  // 選擇題：在答案旁邊標出要選哪一個
+  const choice = typeof L.num==="number" ? pickChoice(L.q, L.num) : null;
+  if(choice){ const st = steps.find(s=>/class="answer"/.test(s.html)); if(st) st.html = st.html.replace(/(<div class="answer">[^<]*)/, `$1　→ 選 <b>(${choice})</b>`); }
   let diag = null;
   if(stuAns!==null && stuAns!==undefined){
     diag = typeof L.num==="number" ? diagLesson(L, stuAns)
@@ -780,7 +796,8 @@ async function ask(){
     if(L){
       const diag = showLesson(L, stuAns);
       const wrongAns = (stuAns!==null && diag && diag.cls!=="diag-ok") ? fmt(stuAns) : null;
-      try{ await Store.record({key:"lesson|"+L.id, question:L.q, solved:true, type:"單元題庫", answer:L.ans.slice(0,380)}, wrongAns); }
+      const vkey = L.inst ? "|" + Object.entries(L.vals).map(([k,v])=>k+"="+v).join("|") : "";
+      try{ await Store.record({key:"lesson|"+L.id+vkey, question:L.q, solved:true, type:"單元題庫", answer:L.ans.slice(0,380)}, wrongAns); }
       catch(e){ console.warn(e); }
       return;
     }

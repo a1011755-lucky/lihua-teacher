@@ -1,3 +1,6 @@
 node_modules/
 .wrangler/
 .dev.vars
+
+# 老師上傳的原始題目（不公開）
+題目上傳/
