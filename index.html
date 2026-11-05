@@ -611,17 +611,21 @@ function bankHit(raw){
   if(!BANK) BANK = BANK_INDEX.map(([t, a, st, full, ns, l])=>({t, a, l, st:new Set(st.split(".")), full:new Set(full.split(".")), ns}));
   const k = textKey(raw), q = new Set();
   for(let i=0;i<k.length-1;i++) q.add(h24(k.slice(i,i+2)).toString(36));
-  const stemKey = textKey(normalize(raw).split(/\(A\)|（A）/)[0]);
-  const ns = h24(numsOf(stemKey)).toString(36);
-  const cand = [];
+  // 數字檢查：題庫題目題幹裡的每個數字，學生的題目裡都要有（數字不一樣就不是同一題）
+  // 只比數字、不比單位：拍照時「公尺」常被認成別的字，但數字通常是對的
+  // 只看題幹（選項裡常有原來的數字）；題幹的數字要和題庫那題一模一樣（多一個、少一個都不行）
+  const qStem = normalize(raw).split(/[\(（]\s*A\s*[\)）]?/)[0];   // 拍照時「(A)」的右括號常不見
+  const qns = (qStem.match(/\d+(?:\.\d+)?/g)||[]).map(Number).sort((a,b)=>a-b).join(",");
+  const numsOk = ns => (ns || "") === qns;
+  const cand = []; let near = 0;
   for(const b of BANK){
-    if(b.ns !== ns) continue;   // 數字或單位不一樣，就不是同一題
     let si = 0, fi = 0;
     for(const x of b.st) if(q.has(x)) si++;
     for(const x of b.full) if(q.has(x)) fi++;
-    cand.push({b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)});
+    const c = {b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)};
+    if(numsOk(b.ns)) cand.push(c); else near = Math.max(near, c.stem, c.full);
   }
-  if(!cand.length) return null;
+  if(!cand.length) return near >= 0.75 ? {near:true} : null;
   // 先看整題（含選項）；整題不夠像，才看題幹
   cand.sort((x,y)=>y.full-x.full);
   const f0 = cand[0];
@@ -630,7 +634,7 @@ function bankHit(raw){
     return {type: f0.b.t, ans: f0.b.a, lesson: f0.b.l, sc: f0.full};
   cand.sort((x,y)=>y.stem-x.stem);
   const top = cand[0];
-  if(top.stem < BANK_STEM) return null;
+  if(top.stem < BANK_STEM) return near >= 0.75 && near > top.stem + 0.2 ? {near:true} : null;
   // 好幾題題幹一樣（例如「附圖…何者錯誤？」），答案又不同 → 只看題幹分不出來
   if(cand.some(c=>c!==top && c.stem >= top.stem - 0.03 && c.b.a!==top.b.a)) return null;
   return {type: top.b.t, ans: top.b.a, lesson: top.b.l, sc: top.stem};
@@ -824,7 +828,21 @@ async function ask(){
     if(stuLetter){ const o = choicesOf(raw).find(o=>o.c===stuLetter[1].toUpperCase()); if(o) stuAns = o.v; }
     // ① 單元題庫裡有這題 → 用老師準備好的動畫講解
     // ⓪ 老師題庫裡的原題 → 標準答案＋題型講解（模板算得出、而且和標準答案一樣時，用模板的計算過程）
-    const bh = skipLessonOnce ? null : bankHit(raw);
+    let bh = skipLessonOnce ? null : bankHit(raw);
+    // 拍照的題目和題庫某題幾乎一樣、只有數字不同 → 很可能是數字認錯，請學生核對（不直接給答案）
+    if(bh && bh.near){
+      bh = null;
+      if(photoData){
+        $("#result").hidden = true; $("#unknown").hidden = false;
+        const marked = esc(raw).replace(/\d+(?:\.\d+)?/g, m=>`<mark>${m}</mark>`);
+        $("#unknown").innerHTML = `<h2>🔍 請核對題目裡的數字</h2>
+          <p>這題和老師題庫裡的一題幾乎一樣，但<b>數字不同</b>，可能是照片裡的數字沒認清楚。請對照課本，檢查下面標黃色的數字，有錯就在題目欄改正，再按一次「請老師解答」。</p>
+          <p style="background:#f8fafc;border-radius:8px;padding:8px 12px">${marked}</p>
+          <p style="margin-bottom:0"><button class="btn small" id="numsFine">數字都對，繼續解題</button></p>`;
+        $("#numsFine").onclick = ()=>{ skipLessonOnce = true; ask(); };
+        return;
+      }
+    }
     if(bh){
       let tv = null; const nw0 = parseNewton(raw);
       if(nw0) tv = Math.abs(nw0.val); else if(p.target){ const s0 = solve(p.q, p.target); if(s0.ok) tv = s0.k[p.target]; }
@@ -933,9 +951,47 @@ function shrink(img, max){
   const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(img, 0, 0, c.width, c.height);
   return c;
 }
+// 辨識前先整理照片：放大到夠清楚、轉灰階、去掉陰影（光線不均）、拉高對比
+function prepOcr(img, mode){
+  const long = Math.max(img.naturalWidth, img.naturalHeight);
+  const k = Math.min(2.5, 2200 / long);   // 太小的照片放大，太大的縮小
+  const c = document.createElement("canvas");
+  const w = c.width = Math.round(img.naturalWidth*k), h = c.height = Math.round(img.naturalHeight*k);
+  const g = c.getContext("2d", {willReadFrequently:true});
+  g.fillStyle = "#fff"; g.fillRect(0, 0, w, h); g.drawImage(img, 0, 0, w, h);
+  const d = g.getImageData(0, 0, w, h), px = d.data, n = w*h, gray = new Float32Array(n);
+  for(let i=0;i<n;i++) gray[i] = 0.299*px[i*4] + 0.587*px[i*4+1] + 0.114*px[i*4+2];
+  // 背景亮度：用大範圍平均估計（積分圖），把每個點除以背景，陰影就被拉平
+  const R = Math.max(15, Math.round(Math.min(w, h)/18));
+  const I = new Float64Array((w+1)*(h+1));
+  for(let y=0;y<h;y++){ let row = 0; for(let x=0;x<w;x++){ row += gray[y*w+x]; I[(y+1)*(w+1)+x+1] = I[y*(w+1)+x+1] + row; } }
+  const out = new Float32Array(n);
+  for(let y=0;y<h;y++){ const y0 = Math.max(0, y-R), y1 = Math.min(h, y+R+1);
+    for(let x=0;x<w;x++){ const x0 = Math.max(0, x-R), x1 = Math.min(w, x+R+1);
+      const mean = (I[y1*(w+1)+x1] - I[y0*(w+1)+x1] - I[y1*(w+1)+x0] + I[y0*(w+1)+x0]) / ((x1-x0)*(y1-y0));
+      out[y*w+x] = Math.min(1.2, gray[y*w+x] / Math.max(mean, 1)); } }
+  // 拉高對比：最暗 1% → 黑、比背景亮 → 白
+  const sorted = Array.from(out.filter((_, i)=>i%7===0)).sort((a,b)=>a-b);
+  const lo = sorted[Math.floor(sorted.length*0.01)], hi = 0.95;
+  for(let i=0;i<n;i++){
+    let v = (out[i]-lo)/Math.max(hi-lo, 0.05);
+    if(mode==="bin") v = v < 0.6 ? 0 : 1;   // 黑白二值
+    v = Math.max(0, Math.min(1, v))*255;
+    px[i*4] = px[i*4+1] = px[i*4+2] = v; px[i*4+3] = 255;
+  }
+  g.putImageData(d, 0, 0);
+  return c;
+}
 // 辨識出來的中文字中間常會多空格、斷行，整理一下
 function cleanOcr(t){
   const CJK = "[\\u2E80-\\u9FFF\\uFF00-\\uFFEF\\u3000-\\u303F]";
+  t = t.replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+       .replace(/(\d)\s+(?=\d)/g, "$1")                          // 「12 000」→「12000」
+       .replace(/(\d)\s*[.．。]\s*(?=\d)/g, "$1.")                // 小數點常被認成「。」
+       .replace(/(?<=\d)[Oo](?=\d|\b)|(?<=\b)[Oo](?=\d)/g, "0")   // 數字中的 O → 0
+       .replace(/(?<=\d)[lI|](?=\d)|(?<=\b)[lI|](?=\d)/g, "1")    // 數字中的 l、I → 1
+       .replace(/m\s*\/\s*[5S]\s*[2²]/g, "m/s²")                   // 「m/s2」常被認成「m/52」
+       .replace(/m\s*\/\s*5(?![0-9])/g, "m/s");
   return t.replace(new RegExp(`(${CJK})[ \\t]+(?=${CJK})`,"g"), "$1")
           .replace(new RegExp(`(${CJK})[ \\t]+(?=[0-9A-Za-z])`,"g"), "$1")
           .replace(new RegExp(`([0-9A-Za-z²])[ \\t]+(?=${CJK})`,"g"), "$1")
@@ -962,7 +1018,8 @@ async function onPhoto(file){
       logger: m => { if(job===ocrJob && typeof m.progress==="number")
         setOcr(m.status==="recognizing text" ? "📖 辨識文字中…" : "⬇ 下載辨識資料中…（只有第一次）", m.status==="recognizing text" ? 0.3+m.progress*0.7 : m.progress*0.3); }
     });
-    const {data} = await ocrWorker.recognize(shrink(img, 2000));
+    let pic; try{ pic = prepOcr(img); }catch(e){ console.warn(e); pic = shrink(img, 2000); }   // 先去陰影、拉對比，辨識率高很多
+    const {data} = await ocrWorker.recognize(pic);
     if(job!==ocrJob) return;   // 中途換了照片
     const text = cleanOcr(data.text || "");
     const zh = (text.match(/[一-鿿]/g)||[]).length;
