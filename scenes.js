@@ -469,8 +469,27 @@ const forces = {
    inertia：慣性   {type:"inertia", mode:"brake|start"}
    ====================================================================== */
 const inertia = {
-  hint(s){ return s.mode==="start" ? "車子突然起動時，乘客的身體因為慣性還想「保持靜止」，所以會向後傾。" : "車子突然煞車時，乘客的身體因為慣性還想「保持原來的速度」，所以會向前傾。"; },
-  init(s){ return {s, start: s.mode==="start", T:6, dur:7500}; },
+  hint(s){ if(s.mode==="coin") return "卡片被快速抽走時，硬幣因為慣性保持靜止，接著因重力掉下。"; return s.mode==="start" ? "車子突然起動時，乘客的身體因為慣性還想「保持靜止」，所以會向後傾。" : "車子突然煞車時，乘客的身體因為慣性還想「保持原來的速度」，所以會向前傾。"; },
+  init(s){ if(s.mode==="coin") return {s, coin:true, T:3, dur:5000}; return {s, start: s.mode==="start", T:6, dur:7500}; },
+  // 硬幣放在卡片上、卡片快速彈走 → 硬幣因為慣性留在原地，掉進瓶子
+  coin(st, t){
+    sky(0, H, "#f8fafc", "#ffffff");
+    const cx = W*0.4, tableY = H-80, bw = 90, bh = 150, neck = 34, topY = tableY - bh - 30;
+    g.fillStyle = "#a16207"; g.fillRect(0, tableY, W, 14);
+    g.fillStyle = "rgba(186,230,253,.55)"; g.strokeStyle = "#0284c7"; g.lineWidth = 2;
+    rrect(cx-bw/2, tableY-bh, bw, bh, 14); g.fill(); g.stroke();
+    g.fillRect(cx-neck/2, topY, neck, 30); g.strokeRect(cx-neck/2, topY, neck, 30);
+    const flick = 0.8, fly = clamp((t-flick)/0.15, 0, 1);
+    const cardX = cx - 70 + fly*(W);   // 卡片一下子被彈走
+    g.fillStyle = "#f472b6"; g.fillRect(cardX, topY-8, 140, 8);
+    const fall = Math.max(0, t - flick - 0.05), coinBottom = tableY - 10;
+    const cy = Math.min(topY - 16 + 0.5*900*fall*fall, coinBottom - 8);
+    g.fillStyle = "#facc15"; g.beginPath(); g.ellipse(cx, cy, 16, 6, 0, 0, 7); g.fill(); g.strokeStyle = "#a16207"; g.stroke();
+    if(t < flick) arrow(cx+90, topY-30, cx+30, topY-30, "#dc2626", "手指準備彈卡片", {size:14, ly:topY-42});
+    text(`t = ${fmt(t, 2)} s`, W-14, 24, {size:14, bold:true, align:"right"});
+    const msg = t < flick ? "硬幣放在卡片上，卡片放在瓶口。" : t < flick + 0.3 ? "卡片被快速彈走！硬幣幾乎沒有受到水平的力，因為慣性，留在原地。" : "硬幣下面沒有支撐了，受重力直直掉進瓶子裡。";
+    wrap(msg, W*0.62, 80, W*0.36, {size:16, bold:true});
+  },
   prof(st, t){
     if(st.start){
       const v = t<1.5 ? 0 : t<3.5 ? (t-1.5)/2 : 1;
@@ -486,6 +505,7 @@ const inertia = {
     return {v, x, lean, phase, acc: t>=2 && t<4 ? -1 : 0};
   },
   draw(st, t){
+    if(st.coin) return inertia.coin(st, t);
     const p = inertia.prof(st, t), groundY = 300;
     sky(0, groundY);
     // 背景（樹）往後退
