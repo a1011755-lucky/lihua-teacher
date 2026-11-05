@@ -198,7 +198,7 @@ function pathLen(b, t){ let s = 0; const n = 240; for(let i=0;i<n;i++){ s += Mat
 const motion = {
   hint(s){
     const gph = s.graph || "vt";
-    return "藍色箭頭＝速度，橘色箭頭＝加速度。" +
+    return (s.strobe ? "黃色點＝每隔相同時間留下的位置：點的間隔越大，跑得越快。" : "") + "藍色箭頭＝速度，橘色箭頭＝加速度。" +
       (gph==="vt" ? "下方是「速度–時間圖」，藍色面積就是位移。" : gph==="xt" ? "下方是「位置–時間圖」，線越斜代表跑越快。" : gph==="both" ? "下方左邊是「位置–時間圖」，右邊是「速度–時間圖」。" : "");
   },
   init(s){
@@ -269,6 +269,11 @@ const motion = {
       g.fillStyle = "#4b5563"; g.fillRect(0, base, W, roadH);
       if(n===1){ g.strokeStyle = "#f9fafb"; g.setLineDash([18,14]); g.lineWidth = 2; g.beginPath(); g.moveTo(0, base+roadH/2); g.lineTo(W, base+roadH/2); g.stroke(); g.setLineDash([]); }
       const x = b.pos(t), v = b.vel(t), a = b.acc(t), px = X(x);
+      // 頻閃／打點：每隔相同時間在路上留下一個點
+      const ns = num(s.strobe, 0);
+      if(ns > 0) for(let k=0; k<=ns; k++){ const tk = T*k/ns; if(tk > t+1e-9) break;
+        g.fillStyle = "#facc15"; g.beginPath(); g.arc(X(b.pos(tk)), base + roadH/2, 5, 0, 7); g.fill();
+        g.strokeStyle = "#78350f"; g.lineWidth = 1; g.stroke(); }
       const ih = drawIcon(b.icon, px, base, b.color, v, t);
       if(n>1) text(b.label, 10, base-6, {size:14, bold:true, color:b.color});
       const vy = base - ih - 16;

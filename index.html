@@ -216,6 +216,7 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
 <script src="firebase-config.js"></script>
 <script src="scenes.js"></script>
 <script src="lessons.js"></script>
+<script src="bank-index.js"></script>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
@@ -602,6 +603,38 @@ function rankLessons(raw){
   }).sort((a,b)=>b.sc-a.sc);
 }
 // 回傳 {L}：確定是這題；{pick:[…]}：很像，請學生確認；null：題庫沒有
+// 題庫指紋（bank-index.js）：學生問到老師題庫裡的原題 → 拿到標準答案和題型
+const h24 = s => { let h = 0x811c9dc5; for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0) & 0xffffff; };
+let BANK = null, BANK_FULL = 0.6, BANK_STEM = 0.7;
+function bankHit(raw){
+  if(!window.BANK_INDEX) return null;
+  if(!BANK) BANK = BANK_INDEX.map(([t, a, st, full, ns])=>({t, a, st:new Set(st.split(".")), full:new Set(full.split(".")), ns}));
+  const k = textKey(raw), q = new Set();
+  for(let i=0;i<k.length-1;i++) q.add(h24(k.slice(i,i+2)).toString(36));
+  const stemKey = textKey(normalize(raw).split(/\(A\)|（A）/)[0]);
+  const ns = h24(numsOf(stemKey)).toString(36);
+  const cand = [];
+  for(const b of BANK){
+    if(b.ns !== ns) continue;   // 數字或單位不一樣，就不是同一題
+    let si = 0, fi = 0;
+    for(const x of b.st) if(q.has(x)) si++;
+    for(const x of b.full) if(q.has(x)) fi++;
+    cand.push({b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)});
+  }
+  if(!cand.length) return null;
+  // 先看整題（含選項）；整題不夠像，才看題幹
+  cand.sort((x,y)=>y.full-x.full);
+  const f0 = cand[0];
+  const hasOpts = /[\(（]\s*[AB]\s*[\)）]/i.test(raw);   // 沒有選項時，只能比題幹
+  if(hasOpts && f0.full >= BANK_FULL && !cand.some(c=>c!==f0 && c.full >= f0.full - 0.03 && c.b.a!==f0.b.a))
+    return {type: f0.b.t, ans: f0.b.a, sc: f0.full};
+  cand.sort((x,y)=>y.stem-x.stem);
+  const top = cand[0];
+  if(top.stem < BANK_STEM) return null;
+  // 好幾題題幹一樣（例如「附圖…何者錯誤？」），答案又不同 → 只看題幹分不出來
+  if(cand.some(c=>c!==top && c.stem >= top.stem - 0.03 && c.b.a!==top.b.a)) return null;
+  return {type: top.b.t, ans: top.b.a, sc: top.stem};
+}
 // 題型：同一題、數字不同 → 把學生的數字代進講解和動畫
 function instLesson(L, raw){
   const vals = window.lessonVals ? lessonVals(L, normalize(raw)) : null;
@@ -629,8 +662,17 @@ function diagLesson(L, x){
   if(m) return {cls:"diag-warn", html:m.tip, known:true};
   return {cls:"diag-bad", html:`你的答案 ${fmt(x)} 和正確答案（${esc(L.ans)}）不一樣。請從第一步開始，一步一步對照，看看是哪裡不同。`};
 }
-function showLesson(L, stuAns, extraBadge, scroll){
+function showLesson(L, stuAns, extraBadge, scroll, exam){
   const steps = L.steps.map(s=>({title:s.t, html:s.h, anim:s.anim||"none"}));
+  if(exam){   // 老師題庫的原題：先給這題的答案，下面是同觀念的例題講解
+    const you = exam.letter ? (exam.letter===exam.ans
+        ? `<div class="step diag-ok" style="margin-top:8px"><b>你選 (${exam.letter})，答對了！👏</b></div>`
+        : `<div class="step diag-warn" style="margin-top:8px">你選 (${exam.letter})，正確答案是 <b>(${exam.ans})</b>。看下面同觀念的講解和動畫，想想差在哪裡。</div>`) : "";
+    steps.unshift({title:"這一題的答案", anim:"none", html:`<div class="answer">答案：(${exam.ans})</div>${you}<div class="muted" style="margin-top:8px">接下來用一題<b>同觀念的例題</b>，一步一步講解這個觀念（按「下一步」）。</div>`});
+    steps[1] = {...steps[1], html:`<div class="muted" style="font-size:14px;margin-bottom:6px">📘 同觀念例題：${esc(L.q)}</div>` + steps[1].html};
+    showWalk({badges:`<span class="badge b-ok">✅ 老師題庫的題目 · 答案取自老師的解答本 · 0 token</span><span class="badge b-info">📘 ${esc(L.sec)}</span>`, steps, scene:L.scene, scroll});
+    return null;
+  }
   steps[0] = {...steps[0], html:`<div class="muted" style="font-size:14px;margin-bottom:6px">${L.inst ? "📘 題庫題型（已換成你題目的數字）" : "📘 題庫題目"}：${esc(L.q)}</div>` + steps[0].html};
   // 選擇題：在答案旁邊標出要選哪一個
   const choice = typeof L.num==="number" ? pickChoice(L.q, L.num) : null;
@@ -781,6 +823,21 @@ async function ask(){
     const stuLetter = stuRaw.match(/^[\(（]?\s*([A-Da-d])\s*[\)）]?$/);   // 選擇題填「B」也可以
     if(stuLetter){ const o = choicesOf(raw).find(o=>o.c===stuLetter[1].toUpperCase()); if(o) stuAns = o.v; }
     // ① 單元題庫裡有這題 → 用老師準備好的動畫講解
+    // ⓪ 老師題庫裡的原題 → 標準答案＋題型講解（模板算得出、而且和標準答案一樣時，用模板的計算過程）
+    const bh = skipLessonOnce ? null : bankHit(raw);
+    if(bh){
+      let tv = null; const nw0 = parseNewton(raw);
+      if(nw0) tv = Math.abs(nw0.val); else if(p.target){ const s0 = solve(p.q, p.target); if(s0.ok) tv = s0.k[p.target]; }
+      const tmplOk = tv!==null && pickChoice(raw, tv)===bh.ans;
+      const TL = LESSONS.find(x=>x.id===(window.TYPE_LESSON||{})[bh.type]);
+      if(!tmplOk && TL){
+        showLesson(TL, null, "", false, {ans: bh.ans, letter: stuLetter ? stuLetter[1].toUpperCase() : null});
+        const wrong = stuLetter && stuLetter[1].toUpperCase()!==bh.ans ? stuLetter[1].toUpperCase() : null;
+        try{ await Store.record({key:"bank|"+bh.type+"|"+hashId(textKey(raw)), question:raw, solved:true, type:"題庫原題", answer:"("+bh.ans+")"}, wrong); }
+        catch(e){ console.warn(e); }
+        return;
+      }
+    }
     const mt = skipLessonOnce ? null : matchLesson(raw);
     skipLessonOnce = false;
     if(mt && mt.pick){   // 很像題庫裡的題目 → 請學生確認是哪一題
