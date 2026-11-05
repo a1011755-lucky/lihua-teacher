@@ -542,8 +542,10 @@ const action = {
     const gap = 34, sc = (W/2-80-gap)/(maxd-0.5), mx = Math.max(m1, m2);
     const x1 = W/2 - gap - d(a1, t)*sc, x2 = W/2 + gap + d(a2, t)*sc;
     const h1 = 84 + 40*m1/mx, h2 = 84 + 40*m2/mx;
-    drawPerson(x1, ice, "#dc2626", h1, 0, null);
-    drawPerson(x2, ice, "#2563eb", h2, 0, null);
+    const icons = Array.isArray(st.s.icons) ? st.s.icons : [];
+    const who = (ic, x, col, h) => { if(ic==="ball"){ g.fillStyle = col; g.beginPath(); g.arc(x, ice-18, 18, 0, 7); g.fill(); } else drawPerson(x, ice, col, h, 0, null); };
+    who(icons[0], x1, "#dc2626", h1);
+    who(icons[1], x2, "#2563eb", h2);
     text(`${l1}（${fmt(m1)} kg）`, x1 + 16, ice+44, {size:14, bold:true, align:"right", color:"#dc2626"});
     text(`${l2}（${fmt(m2)} kg）`, x2 - 16, ice+44, {size:14, bold:true, align:"left", color:"#2563eb"});
     const pushing = t < tp;
