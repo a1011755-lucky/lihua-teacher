@@ -608,7 +608,7 @@ const h24 = s => { let h = 0x811c9dc5; for(let i=0;i<s.length;i++){ h ^= s.charC
 let BANK = null, BANK_FULL = 0.6, BANK_STEM = 0.7;
 function bankHit(raw){
   if(!window.BANK_INDEX) return null;
-  if(!BANK) BANK = BANK_INDEX.map(([t, a, st, full, ns])=>({t, a, st:new Set(st.split(".")), full:new Set(full.split(".")), ns}));
+  if(!BANK) BANK = BANK_INDEX.map(([t, a, st, full, ns, l])=>({t, a, l, st:new Set(st.split(".")), full:new Set(full.split(".")), ns}));
   const k = textKey(raw), q = new Set();
   for(let i=0;i<k.length-1;i++) q.add(h24(k.slice(i,i+2)).toString(36));
   const stemKey = textKey(normalize(raw).split(/\(A\)|（A）/)[0]);
@@ -627,13 +627,13 @@ function bankHit(raw){
   const f0 = cand[0];
   const hasOpts = /[\(（]\s*[AB]\s*[\)）]/i.test(raw);   // 沒有選項時，只能比題幹
   if(hasOpts && f0.full >= BANK_FULL && !cand.some(c=>c!==f0 && c.full >= f0.full - 0.03 && c.b.a!==f0.b.a))
-    return {type: f0.b.t, ans: f0.b.a, sc: f0.full};
+    return {type: f0.b.t, ans: f0.b.a, lesson: f0.b.l, sc: f0.full};
   cand.sort((x,y)=>y.stem-x.stem);
   const top = cand[0];
   if(top.stem < BANK_STEM) return null;
   // 好幾題題幹一樣（例如「附圖…何者錯誤？」），答案又不同 → 只看題幹分不出來
   if(cand.some(c=>c!==top && c.stem >= top.stem - 0.03 && c.b.a!==top.b.a)) return null;
-  return {type: top.b.t, ans: top.b.a, sc: top.stem};
+  return {type: top.b.t, ans: top.b.a, lesson: top.b.l, sc: top.stem};
 }
 // 題型：同一題、數字不同 → 把學生的數字代進講解和動畫
 function instLesson(L, raw){
@@ -829,7 +829,7 @@ async function ask(){
       let tv = null; const nw0 = parseNewton(raw);
       if(nw0) tv = Math.abs(nw0.val); else if(p.target){ const s0 = solve(p.q, p.target); if(s0.ok) tv = s0.k[p.target]; }
       const tmplOk = tv!==null && pickChoice(raw, tv)===bh.ans;
-      const TL = LESSONS.find(x=>x.id===(window.TYPE_LESSON||{})[bh.type]);
+      const TL = LESSONS.find(x=>x.id===(bh.lesson || (window.TYPE_LESSON||{})[bh.type]));
       if(!tmplOk && TL){
         showLesson(TL, null, "", false, {ans: bh.ans, letter: stuLetter ? stuLetter[1].toUpperCase() : null});
         const wrong = stuLetter && stuLetter[1].toUpperCase()!==bh.ans ? stuLetter[1].toUpperCase() : null;
