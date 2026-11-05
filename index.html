@@ -620,19 +620,25 @@ function bankHit(raw){
   // 數字檢查：只比數字、不比單位（拍照時「公尺」常被認成別的字，但數字通常是對的）
   // 只看題幹（選項裡常有原來的數字）。題庫那題的數字一個都不能少、不能不同；
   // 頁碼、題號不在題幹裡；出處標籤（基測、會考…）上面已經拿掉
-  const qStem = raw.split(/[\(（]\s*A\s*[\)）]?/)[0];   // 拍照時「(A)」的右括號常不見
-  const qNums = (qStem.match(/\d+(?:\.\d+)?/g)||[]).map(x=>String(+x));
-  const numCheck = ns => {   // 0＝完全一樣，其他＝不同
-    const left = qNums.slice();
-    for(const v of (ns ? ns.split(",") : [])){ const i = left.indexOf(v); if(i<0) return -1; left.splice(i, 1); }
-    return left.length===0 ? 0 : left.length===1 ? 1 : -1;
+  // 題庫那題題幹的數字，學生題目的「前段」裡都要找得到（改過數字的題目會少掉原本的數字 → 不算同一題）；
+  // 照片多出來的雜訊數字（題號、圖上的刻度、認錯的字）不管。
+  // 前段＝第一個選項 (A)/(B)… 之前；認不出選項時，取和題庫題幹差不多長的開頭
+  const compact = raw.replace(/\s+/g, "");
+  const optAt = compact.search(/[\(（][A-D][\)）]/);
+  const numCheck = (ns, stemLen) => {
+    const L = Math.round(stemLen*1.3) + 6;
+    const region = compact.slice(0, optAt > 0 ? optAt : L);   // 有選項：整個題幹；認不出選項：估計長度
+    const have = (region.match(/\d+(?:\.\d+)?/g)||[]).map(x=>String(+x));
+    for(const v of (ns ? ns.split(",") : [])){ const i = have.indexOf(v); if(i<0) return -1; have.splice(i, 1); }
+    // 多出來的數字：照片雜訊（「s」認成 5、「)」認成 0）幾乎都是個位數；最多容許 2 個個位數
+    return have.length <= 2 && have.every(v=>/^\d$/.test(v)) ? 0 : -1;
   };
   const cand = []; let near = 0, partial = 0;
   for(const b of BANK){
     let si = 0, fi = 0;
     for(const x of b.st) if(q.has(x)) si++;
     for(const x of b.full) if(q.has(x)) fi++;
-    const c = {b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)}, nc = numCheck(b.ns);
+    const c = {b, stem: si/b.st.size, full: 2*fi/(b.full.size+q.size)}, nc = numCheck(b.ns, b.st.size);
     if(nc===0) cand.push(c);
     else near = Math.max(near, c.stem, c.full);
     if(q.size >= 10 && si/q.size >= 0.7 && nc===0) partial++;   // 學生打的字大多在這題裡（題目打太短）
@@ -642,14 +648,16 @@ function bankHit(raw){
   cand.sort((x,y)=>y.full-x.full);
   const f0 = cand[0];
   const hasOpts = /[\(（]\s*[AB]\s*[\)）]/i.test(raw);   // 沒有選項時，只能比題幹
+  // 保險：另一題「文字更像、只是數字對不上」→ 很可能是同一題的數字被改了或認錯，不給答案，請學生核對
+  const doubt = c => near > Math.max(c.stem, c.full) + 0.05;
   if(hasOpts && f0.full >= BANK_FULL && !cand.some(c=>c!==f0 && c.full >= f0.full - 0.03 && c.b.a!==f0.b.a))
-    return {type: f0.b.t, ans: f0.b.a, lesson: f0.b.l, sc: f0.full};
+    return doubt(f0) ? {near:true} : {type: f0.b.t, ans: f0.b.a, lesson: f0.b.l, sc: f0.full};
   cand.sort((x,y)=>y.stem-x.stem);
   const top = cand[0];
   if(top.stem < BANK_STEM) return near >= 0.75 && near > top.stem + 0.2 ? {near:true} : partial ? {partial} : null;
   // 好幾題題幹一樣（例如「附圖…何者錯誤？」），答案又不同 → 只看題幹分不出來
   if(cand.some(c=>c!==top && c.stem >= top.stem - 0.03 && c.b.a!==top.b.a)) return {partial: 2};
-  return {type: top.b.t, ans: top.b.a, lesson: top.b.l, sc: top.stem};
+  return doubt(top) ? {near:true} : {type: top.b.t, ans: top.b.a, lesson: top.b.l, sc: top.stem};
 }
 // 題型：同一題、數字不同 → 把學生的數字代進講解和動畫
 function instLesson(L, raw){
@@ -1015,6 +1023,8 @@ function cleanOcr(t){
     if(h.length <= 8 && /\d/.test(h) && (/例|題|範|練習/.test(h) || /^\W*\d{1,3}\W*$/.test(h))) lines.splice(i0, 1); }
   t = lines.join("\n");
   t = t.replace(/[０-９]/g, c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0))
+       .replace(/®/g, "(B)").replace(/©/g, "(C)")                  // 選項的 (B)(C) 常被認成 ® ©
+       .replace(/[\(（]\s*[\)）]/g, " ")                              // 題號後面空白的「( )」
        .replace(/(\d)\s+(?=\d)/g, "$1")                          // 「12 000」→「12000」
        .replace(/(\d)\s*[.．。]\s*(?=\d)/g, "$1.")                // 小數點常被認成「。」
        .replace(/(?<=\d)[Oo](?=\d|\b)|(?<=\b)[Oo](?=\d)/g, "0")   // 數字中的 O → 0
