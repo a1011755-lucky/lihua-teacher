@@ -81,6 +81,7 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
 .errbox{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:8px 12px;margin-bottom:12px}
 .btn.busy{opacity:.6;pointer-events:none}
 .grid.one{grid-template-columns:1fr!important}
+[hidden]{display:none!important}
 .unit{margin-bottom:22px}
 .unit h3{font-size:17px;color:var(--brand-dark);margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid #dbeafe}
 .sec{margin-bottom:12px}
@@ -246,6 +247,10 @@ function normalize(t){
     .replace(/ｍ/g,"m").replace(/ｓ/g,"s").replace(/\s+/g," ");
 }
 const NUM = "(-?\\d+(?:\\.\\d+)?)";
+const CHOICE_RE = /[\(（]\s*([A-Da-d])\s*[\)）]\s*(-?\d+(?:\.\d+)?)\s*(?:公尺|公分|公里|m\/s²|m\/s|km\/h|m|秒|s|kg|N|牛頓)?/g;
+// 選擇題：找出和答案一樣的選項
+function choicesOf(raw){ return [...normalize(raw).matchAll(CHOICE_RE)].map(m=>({c:m[1].toUpperCase(), v:+m[2]})); }
+function pickChoice(raw, val){ const c = choicesOf(raw).find(o=>approx(o.v, val)); return c ? c.c : null; }
 function parseQuestion(raw){
   let full = normalize(raw);
   // 學生在題目裡自己寫的答案，例如「我算出來是 10」
@@ -254,6 +259,8 @@ function parseQuestion(raw){
   if(sm) stu = +sm[1];
   // 去掉「參考解題 SOP」「易錯陷阱」等補充說明
   let text = full.split(/【\s*(?:參考|易錯|解題)/)[0];
+  // 選擇題的選項「(A)50 (B)40…」不是已知數，先拿掉
+  text = text.replace(CHOICE_RE, " ");
   const q = {v0:null, v:null, a:null, t:null, s:null};
   const notes = [];
   let rest = text;
@@ -287,16 +294,28 @@ function parseQuestion(raw){
   const ask = idx>=0 ? text.slice(idx) : text.split(/[，。,]/).slice(-2).join("");
   let target = null;
   if(/加速度/.test(ask)) target = "a";
-  else if(/位移|距離|多遠|滑行|移動了?多少|跑了?多少|走了?多少/.test(ask)) target = "s";
+  else if(/位移|距離|多遠|滑行|(?:移動|前進|行進|行駛|飛行?|跑|走|爬|游)了?(?:多少|幾)|多少(?:公尺|公里|m)/.test(ask)) target = "s";
   else if(/時間|多久|幾秒|多少秒/.test(ask)) target = "t";
   else if(/初速/.test(ask)) target = "v0";
   else if(/末速|速度|速率|多快/.test(ask)) target = "v";
   if(target) q[target] = null;
+  // 只有一個速度、沒提到加速或減速 → 等速運動
+  if((target==="s" || target==="t") && vels.length===1 && !accs.length && !fromRest && !stops && !decel
+     && !/加速|減速|變快|變慢/.test(text) && q.a===null){
+    q.a = 0; q.v = q.v0;
+    notes.push(`題目沒有提到加速或減速 → <b>等速運動</b>：速度一直是 ${fmt(q.v0)} m/s，a = 0`);
+  }
   return {q, target, notes, stu, decel, stops, fromRest};
 }
 
 /* ---------- 解題 ---------- */
 const RULES = [
+  {out:"s", need:["v0","t"], ok:k=>k.a===0, f:k=>k.v0*k.t,
+   formula:"s = v × t", sub:k=>`s = ${fmt(k.v0)} × ${par(k.t)}`,
+   why:"等速運動：速度一直不變，所以 位移 ＝ 速度 × 時間。"},
+  {out:"t", need:["v0","s"], ok:k=>k.a===0 && k.v0!==0, f:k=>k.s/k.v0,
+   formula:"t = s ÷ v", sub:k=>`t = ${fmt(k.s)} ÷ ${par(k.v0)}`,
+   why:"等速運動：時間 ＝ 位移 ÷ 速度。"},
   {out:"a", need:["v0","v","t"], ok:k=>k.t!==0, f:k=>(k.v-k.v0)/k.t,
    formula:"a = (v − v₀) ÷ t", sub:k=>`a = (${fmt(k.v)} − ${par(k.v0)}) ÷ ${par(k.t)}`,
    why:"加速度 ＝「速度的變化」÷「花的時間」。速度的變化一定是 <b>末速 − 初速</b>（後面的減前面的）。"},
@@ -348,6 +367,8 @@ function diagnose(target, k, x){
       ? "大小算對了，但<b>正負號相反</b>。你很可能算成「初速 − 末速」。公式一定是 <b>末速 − 初速</b>（後面的減前面的），照順序代進去，負號會自己出現，不用另外加。"
       : "大小算對了，但<b>正負號相反</b>。回到第一步，確認哪個方向是正的，再檢查每個數字的正負號。");
   }
+  if(c!==0 && (approx(x, c*3.6) || approx(x, c/3.6)))
+    tips.push("單位沒換對：km/h 換成 m/s 要 <b>÷ 3.6</b>（m/s 換成 km/h 才是 × 3.6）。");
   if(target==="a"){
     if(approx(Math.abs(x), Math.abs(k.v-k.v0)) && k.t!==1) tips.push("你算的是「速度的變化」，還要<b>再除以時間</b>才是加速度。");
     if(approx(Math.abs(x), Math.abs((k.v-k.v0)*k.t)) && k.t!==1) tips.push("速度的變化要<b>除以</b>時間，不是乘以時間。");
@@ -738,8 +759,11 @@ async function ask(){
       return;
     }
     const p = parseQuestion(raw); p.raw = raw;
-    const stuIn = normalize($("#stu").value).match(/-?\d+(?:\.\d+)?/);
-    const stuAns = stuIn ? +stuIn[0] : p.stu;
+    const stuRaw = normalize($("#stu").value).trim();
+    const stuIn = stuRaw.match(/-?\d+(?:\.\d+)?/);
+    let stuAns = stuIn ? +stuIn[0] : p.stu;
+    const stuLetter = stuRaw.match(/^[\(（]?\s*([A-Da-d])\s*[\)）]?$/);   // 選擇題填「B」也可以
+    if(stuLetter){ const o = choicesOf(raw).find(o=>o.c===stuLetter[1].toUpperCase()); if(o) stuAns = o.v; }
     // ① 單元題庫裡有這題 → 用老師準備好的動畫講解
     const mt = skipLessonOnce ? null : matchLesson(raw);
     skipLessonOnce = false;
@@ -789,6 +813,8 @@ async function ask(){
       return;
     }
     const built = buildSteps(p, sol, stuAns);
+    const choice = pickChoice(raw, sol.k[p.target]);
+    if(choice){ const st = built.steps.find(s=>/答案是什麼意思/.test(s.title)); if(st) st.html = st.html.replace("</div>", `　→ 選 <b>(${choice})</b></div>`); }
     const correct = built.diag ? built.diag.cls==="diag-ok" : true;
     const wrongAns = (stuAns!==null && !correct) ? fmt(stuAns) : null;
     let badge;
@@ -976,18 +1002,20 @@ function renderBank(){
   $("#clear").hidden = !canEdit();
   const asks = bank.reduce((s,b)=>s+(b.askCount||0),0);
   const reused = bank.reduce((s,b)=>s+(b.solved ? (b.askCount||1)-1 : 0),0);
-  const waiting = bank.filter(b=>!b.solved).length;
+  const waiting = bank.filter(b=>!b.solved && !(matchLesson(b.question)||{}).L).length;
   $("#stats").innerHTML = `
     <div class="stat"><b>${bank.length}</b><span>題庫題數</span></div>
     <div class="stat"><b>${asks}</b><span>學生總共問了幾次</span></div>
     <div class="stat"><b>${reused}</b><span>直接從題庫拿答案（省下的 AI 呼叫）</span></div>
-    <div class="stat"><b>${waiting}</b><span>待 AI 解答</span></div>`;
+    <div class="stat"><b>${waiting}</b><span>待解答（請 Claude 補上）</span></div>`;
   if(!bank.length){ $("#bankRows").innerHTML = `<tr><td colspan="6" class="muted">題庫還是空的，先到「問問題」問幾題看看。</td></tr>`; return; }
   const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
   const edit = canEdit();
   $("#bankRows").innerHTML = bank.map(b=>{
     const wrong = Object.entries(b.wrong||{}).sort((x,y)=>y[1]-x[1]).map(([a,n])=>`${esc(a)}（${n} 人）`).join("、") || "<span class='muted'>—</span>";
-    const st = !b.solved ? `<span class="st st-ai">待 AI 解答</span>` : b.status==="已審核" ? `<span class="st st-ok">已審核</span>` : `<span class="st st-wait">待審核</span>`;
+    const lm = !b.solved ? matchLesson(b.question) : null;
+    const st = lm && lm.L ? `<span class="st st-ok">已有單元講解</span><div class="muted" style="font-size:12px">學生再問會看到 ${esc(lm.L.id)}，這筆可刪除</div>`
+      : !b.solved ? `<span class="st st-ai">待解答</span>` : b.status==="已審核" ? `<span class="st st-ok">已審核</span>` : `<span class="st st-wait">待審核</span>`;
     return `<tr>
       <td class="qtext">${esc(b.question)}</td>
       <td>${b.answer ? esc(b.answer) : "<span class='muted'>—</span>"}</td>
