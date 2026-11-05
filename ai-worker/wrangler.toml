@@ -1,0 +1,6 @@
+name = "lihua-ai"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+
+# AI 金鑰不寫在這裡！請到 Cloudflare 網站 → Workers → lihua-ai → 設定 → 變數和祕密，
+# 新增「祕密」ANTHROPIC_API_KEY。

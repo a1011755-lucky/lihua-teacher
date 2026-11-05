@@ -10,5 +10,8 @@ window.FIREBASE_CONFIG = {
   appId: "1:1058987353105:web:ad8ba731c171c8db87bdb0"
 };
 
+// AI 老師中繼站（Cloudflare Worker）的網址；空白＝還沒設定，不會呼叫 AI
+window.AI_URL = "";
+
 // 可以審核、刪除題目的老師帳號（要和 firestore.rules 裡的名單一致）
 window.ADMIN_EMAILS = ["a1011755@gmail.com"];

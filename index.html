@@ -67,8 +67,29 @@ th{color:var(--muted);font-weight:700;font-size:14px}
 .ops{display:flex;gap:4px;flex-wrap:wrap}
 .tag.mode{background:#e0e7ff;color:#1e3a8a}
 input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;background:#fff;color:var(--ink)}
+.photo-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.photo-row label.btn{cursor:pointer}
+.photo-box{display:flex;gap:12px;align-items:flex-start;background:#f8fafc;border:1px dashed #cbd5e1;border-radius:10px;padding:10px;margin-bottom:12px}
+.photo-box img{width:120px;max-height:160px;object-fit:contain;border-radius:8px;background:#fff;border:1px solid var(--line)}
+.photo-box .grow{flex:1;min-width:0}
+.bar{height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden;margin:6px 0 8px}
+.bar i{display:block;height:100%;width:0;background:var(--brand);transition:width .3s}
+.ai-steps .step{white-space:pre-wrap}
+.ai-tag{display:inline-block;background:#ede9fe;color:#5b21b6;border-radius:99px;padding:2px 10px;font-size:13px;font-weight:700}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid #c4b5fd;border-top-color:#6d28d9;border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
 .errbox{background:var(--bad-soft);color:var(--bad);border-radius:10px;padding:8px 12px;margin-bottom:12px}
 .btn.busy{opacity:.6;pointer-events:none}
+.grid.one{grid-template-columns:1fr!important}
+.unit{margin-bottom:22px}
+.unit h3{font-size:17px;color:var(--brand-dark);margin:0 0 10px;padding-bottom:6px;border-bottom:2px solid #dbeafe}
+.sec{margin-bottom:12px}
+.sec b{display:block;font-size:15px;margin-bottom:6px;color:#334155}
+.lessons{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px}
+.lesson{text-align:left;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 12px;cursor:pointer;font:inherit;font-size:14px;line-height:1.5;color:var(--ink);display:flex;gap:8px;align-items:flex-start}
+.lesson:hover{border-color:#93c5fd;background:#f8fbff}
+.lesson .ico{font-size:20px;line-height:1.2}
+.sim{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -76,6 +97,7 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
   <h1>🧪 理化小老師</h1><span class="tag">測試版</span><span id="mode" class="tag mode"></span>
   <nav>
     <button data-tab="ask" class="on">🙋 問問題</button>
+    <button data-tab="learn">📘 單元動畫教室</button>
     <button data-tab="bank">📚 題庫（老師後台）</button>
   </nav>
 </header>
@@ -84,13 +106,28 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
 <!-- ===== 問問題 ===== -->
 <section id="tab-ask">
   <div class="card">
-    <label class="lbl" for="q">題目（可以直接貼學生的問題）</label>
+    <div class="photo-row">
+      <label class="btn primary" for="photo">📷 拍照／選照片</label>
+      <input type="file" id="photo" accept="image/*" hidden>
+      <span class="muted">拍題目的照片，會自動轉成文字</span>
+    </div>
+    <div id="photoBox" class="photo-box" hidden>
+      <img id="photoImg" alt="題目照片">
+      <div class="grow">
+        <div id="ocrMsg"></div>
+        <div class="bar"><i id="ocrBar"></i></div>
+        <button id="photoDel" class="btn small" type="button">✕ 移除照片</button>
+      </div>
+    </div>
+    <label class="lbl" for="q">題目（可以直接貼學生的問題，或用上面的拍照）</label>
     <textarea id="q" rows="4" placeholder="例如：一輛汽車以 20 m/s 的速度行駛，看到紅燈後踩煞車，2秒後完全停止。請問煞車期間的加速度為多少 m/s²？"></textarea>
     <div class="chips">範例題：
       <button class="chip" data-ex="0">煞車求加速度</button>
       <button class="chip" data-ex="1">由靜止加速求速度</button>
       <button class="chip" data-ex="2">減速求時間</button>
       <button class="chip" data-ex="3">停下求滑行距離</button>
+      <button class="chip" data-ex="4">F = m × a</button>
+      <button class="chip" data-ex="5">萬有引力</button>
     </div>
     <div class="row">
       <label class="grow">學生算出來的答案（可不填，填了會幫忙找錯在哪）
@@ -101,6 +138,8 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
   </div>
 
   <div id="unknown" class="card warnbox" hidden></div>
+
+  <div id="aiResult" class="card" hidden></div>
 
   <div id="result" hidden>
     <div id="badges" class="badges"></div>
@@ -114,16 +153,25 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
           <button id="all" class="btn">全部展開</button>
         </div>
       </div>
-      <div class="card sticky">
+      <div class="card sticky" id="animCard">
         <h2>動畫</h2>
         <canvas id="cv" width="900" height="420"></canvas>
         <div class="row" style="margin-top:10px;align-items:center">
           <button id="play" class="btn primary">▶ 播放動畫</button>
           <label><input type="checkbox" id="tts"> 🔊 語音朗讀講解</label>
         </div>
-        <p class="hint">藍色箭頭＝速度，橘色箭頭＝加速度。下方是「速度–時間圖」，藍色面積就是位移。</p>
+        <p class="hint" id="animHint"></p>
       </div>
     </div>
+  </div>
+</section>
+
+<!-- ===== 單元動畫教室 ===== -->
+<section id="tab-learn" hidden>
+  <div class="card">
+    <h2>📘 單元動畫教室（國三上）</h2>
+    <p class="muted" style="margin-top:0">點一題就能看「一步一步講解＋動畫」。學生問到一樣的題目（打字或拍照）時，也會直接用這裡的講解，不花 AI 費用。</p>
+    <div id="learnList"></div>
   </div>
 </section>
 
@@ -165,6 +213,8 @@ input[type=password]{width:100%;font:inherit;padding:10px 12px;border:1px solid 
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="firebase-config.js"></script>
+<script src="scenes.js"></script>
+<script src="lessons.js"></script>
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
@@ -172,7 +222,9 @@ const EXAMPLES = [
   "一輛汽車以 20 m/s 的速度行駛，看到紅燈後踩煞車，2秒後完全停止。請問煞車期間的加速度為多少 m/s²？",
   "一台機車由靜止開始，以 3 m/s² 的加速度出發，請問 4 秒後的速度為多少？",
   "一輛汽車以 15 m/s 行駛，煞車時以 5 m/s² 減速，請問汽車經過多久會停下來？",
-  "一顆球以 10 m/s 的速度在地面滾動，受摩擦力影響，5 秒後停止。請問滑行距離為多少公尺？"
+  "一顆球以 10 m/s 的速度在地面滾動，受摩擦力影響，5 秒後停止。請問滑行距離為多少公尺？",
+  "質量 3 kg 的物體受到 15 N 向右的拉力，地面摩擦力為 3 N，請問物體的加速度是多少？",
+  "兩個物體之間的萬有引力是 F。如果質量都不變，兩物體的距離變成原來的 2 倍，萬有引力會變成多少？"
 ];
 const NAMES = {v0:"初速 v₀", v:"末速 v", a:"加速度 a", t:"時間 t", s:"位移 s"};
 const SYM = {v0:"v₀", v:"v", a:"a", t:"t", s:"s"};
@@ -416,6 +468,12 @@ const Store = (()=>{
         err=>cb(null, err));
       cb(loadLocal()); return null;
     },
+    // 把 AI 老師的解答存進題庫（下次同一題就不用再花錢）
+    async saveAI(id, ai){
+      const patch = {ai, answer: ai.answer.slice(0,380), solved:true, type:"AI 解答", status:"待審核", lastAt:Date.now()};
+      if(cloud) return col().doc(id).update(patch);
+      const b = loadLocal(), r = b.find(x=>x.id===id); if(r){ Object.assign(r, patch); saveLocal(b); }
+    },
     async setStatus(id, status){
       if(cloud) return col().doc(id).update({status});
       const b = loadLocal(), r = b.find(x=>x.id===id); if(r){ r.status = status; saveLocal(b); }
@@ -444,7 +502,7 @@ function goStep(i, opts={}){
   renderSteps();
   const s = cur.steps[cur.idx];
   if(!opts.silent) speak(s.title + "。" + s.html);
-  if(s.anim==="play") playAnim(); else if(s.anim==="start") resetAnim();
+  if(s.anim==="play") Scenes.play(); else if(s.anim==="start") Scenes.reset(); else if(s.anim==="end") Scenes.end();
   const el = $("#steps").children[cur.idx];
   if(el && opts.scroll!==false) el.scrollIntoView({behavior:"smooth", block:"nearest"});
 }
@@ -466,134 +524,191 @@ function speak(html){
   }catch(e){}
 }
 
-/* ---------- 動畫 ---------- */
-const cv = $("#cv"), ctx = cv.getContext("2d"), CH = cv.height;
-let CW = cv.width;
+/* ---------- 動畫（畫法在 scenes.js） ---------- */
+const cv = $("#cv");
+Scenes.mount(cv);
 function fitCanvas(){
   // 手機螢幕窄時，把畫布內部寬度調小，文字才不會縮得太小
   const w = cv.parentElement.clientWidth || 900;
   const nw = Math.max(560, Math.min(900, Math.round(w*1.25)));
-  if(nw!==CW){ CW = nw; cv.width = nw; if(anim.k) setupAnim(anim.k); else drawAnim(); }
+  if(nw!==cv.width){ cv.width = nw; Scenes.resize(); }
 }
 window.addEventListener("resize", ()=>fitCanvas());
-const anim = {k:null, T:0, now:0, raf:0, ok:false};
-function setupAnim(k){
-  cancelAnimationFrame(anim.raf);
-  anim.k = k; anim.now = 0;
-  anim.ok = [k.v0,k.a,k.t].every(x=>typeof x==="number"&&isFinite(x)) && k.t>0 && k.t<1e4;
-  anim.T = anim.ok ? k.t : 0;
-  if(anim.ok){
-    let mn = 0, mx = 0;
-    for(let i=0;i<=100;i++){ const x = posAt(anim.T*i/100); mn = Math.min(mn,x); mx = Math.max(mx,x); }
-    if(mx-mn < 1e-9) mx = mn + 1;
-    anim.minX = mn; anim.maxX = mx;
-    anim.scale = (CW-180)/(mx-mn);
-    anim.origin = 90 - mn*anim.scale;
-    const vEnd = velAt(anim.T);
-    anim.maxV = Math.max(Math.abs(k.v0), Math.abs(vEnd), 0.001);
+const playAnim = () => Scenes.play();
+// 解題模板算出來的直線運動 → 動畫設定
+function kinScene(k){
+  const ok = [k.v0,k.a,k.t].every(x=>typeof x==="number"&&isFinite(x)) && k.t>0 && k.t<1e4;
+  return ok ? {type:"motion", graph:"vt", bodies:[{icon:"car", v0:k.v0, segs:[{t:k.t, a:k.a}]}]} : null;
+}
+// 顯示一份講解（步驟＋動畫）：模板、單元題庫、AI 老師共用
+function showWalk(o){
+  $("#unknown").hidden = true; $("#aiResult").hidden = true;
+  $("#badges").innerHTML = o.badges || "";
+  cur = {steps: o.steps, idx: 0};
+  $("#result").hidden = false;
+  const has = Scenes.valid(o.scene);
+  $("#animCard").hidden = !has;
+  $("#result .grid").classList.toggle("one", !has);
+  fitCanvas();
+  Scenes.load(has ? o.scene : null);
+  $("#animHint").textContent = Scenes.hint(o.scene);
+  goStep(0, {scroll:false});
+  if(o.scroll) $("#result").scrollIntoView({behavior:"smooth", block:"start"});
+}
+
+/* ---------- 單元題庫（lessons.js）：比對學生的題目 ---------- */
+const LESSONS = [];
+(window.LESSON_UNITS||[]).forEach(u=>u.sections.forEach(s=>s.items.forEach(it=>{ it.unit = u.name; it.sec = s.name; LESSONS.push(it); })));
+const textKey = s => normalize(s).split(/【\s*(?:參考|易錯|解題)/)[0].replace(/(?:我)?算出(?:來)?.*$/,"")
+  .replace(/[\s，。,.?？!！、：:；;（）()「」『』〔〕\[\]]/g,"").toLowerCase();
+function bigrams(s){ const m = new Map(); for(let i=0;i<s.length-1;i++){ const b = s.slice(i,i+2); m.set(b,(m.get(b)||0)+1); } return m; }
+function dice(a, b){
+  let inter = 0, na = 0, nb = 0;
+  for(const v of a.values()) na += v; for(const v of b.values()) nb += v;
+  for(const [k,v] of a) if(b.has(k)) inter += Math.min(v, b.get(k));
+  return na+nb ? 2*inter/(na+nb) : 0;
+}
+// 數字＋單位的「指紋」：數字或單位不一樣，就一定不是同一題（例如 2 kg 和 2 kgw）
+const UNIT_RE = /(\d+(?:\.\d+)?)(kgw|公斤重|kg|公斤|千克|km\/h|公里\/小時|m\/s²|m\/s\^?2|m\/s|cm\/s|公尺\/秒|公尺|公分|公里|cm|km|m|n|牛頓|秒|s|小時|h|次|倍|度|°)?/g;
+const UNIT_ALIAS = {"公斤重":"kgw","公斤":"kg","千克":"kg","公里/小時":"km/h","m/s^2":"m/s²","m/s2":"m/s²","公尺/秒":"m/s","公尺":"m","公分":"cm","公里":"km","牛頓":"n","秒":"s","小時":"h","°":"度"};
+const numsOf = s => [...s.matchAll(UNIT_RE)].map(m=>(+m[1]) + (UNIT_ALIAS[m[2]] || m[2] || "")).sort().join(",");
+function rankLessons(raw){
+  const k = textKey(raw), bg = bigrams(k), ns = numsOf(k);
+  return LESSONS.map(L=>{
+    if(!L._bg){ const lk = textKey(L.q); L._bg = bigrams(lk); L._ns = numsOf(lk); }
+    const sc = dice(bg, L._bg);
+    return {L, sc, same: (L._ns || "") === ns};   // same：數字和單位都一樣
+  }).sort((a,b)=>b.sc-a.sc);
+}
+// 回傳 {L}：確定是這題；{pick:[…]}：很像，請學生確認；null：題庫沒有
+function matchLesson(raw){
+  const ok = rankLessons(raw).filter(x=>x.same);
+  const top = ok[0], second = ok[1];
+  if(!top || top.sc < 0.22) return null;
+  if(top.sc >= 0.42 || (top.sc >= 0.25 && top.sc - (second ? second.sc : 0) >= 0.12)) return {L: top.L};
+  return {pick: ok.filter(x=>x.sc >= 0.2).slice(0, 3).map(x=>x.L)};
+}
+function diagLesson(L, x){
+  if([L.num, ...(L.alt||[])].some(v=>typeof v==="number" && approx(x, v)))
+    return {cls:"diag-ok", html:"<b>答對了！👏</b>" + (L.alt && L.alt.length ? "　這題問了不只一個答案，記得每一個都要回答。" : "")};
+  const m = (L.mistakes||[]).find(m=>approx(x, m.n));
+  if(m) return {cls:"diag-warn", html:m.tip, known:true};
+  return {cls:"diag-bad", html:`你的答案 ${fmt(x)} 和正確答案（${esc(L.ans)}）不一樣。請從第一步開始，一步一步對照，看看是哪裡不同。`};
+}
+function showLesson(L, stuAns, extraBadge, scroll){
+  const steps = L.steps.map(s=>({title:s.t, html:s.h, anim:s.anim||"none"}));
+  steps[0] = {...steps[0], html:`<div class="muted" style="font-size:14px;margin-bottom:6px">📘 題庫題目：${esc(L.q)}</div>` + steps[0].html};
+  let diag = null;
+  if(stuAns!==null && stuAns!==undefined){
+    diag = typeof L.num==="number" ? diagLesson(L, stuAns)
+      : {cls:"diag-bad", html:`這題的答案是文字說明：${esc(L.ans)}。對照看看你的想法一不一樣。`};
+    steps.push({title:`你的答案（${fmt(stuAns)}）`, anim:"none", cls:diag.cls, html:diag.html});
   }
-  drawAnim();
+  showWalk({badges:`<span class="badge b-info">📘 ${esc(L.sec)}</span><span class="badge b-ok">👩‍🏫 老師準備的動畫講解 · 0 token</span>` + (extraBadge||""),
+            steps, scene:L.scene, scroll});
+  return diag;
 }
-const posAt = t => anim.k.v0*t + 0.5*anim.k.a*t*t;
-const velAt = t => anim.k.v0 + anim.k.a*t;
-function resetAnim(){ cancelAnimationFrame(anim.raf); anim.now = 0; drawAnim(); }
-function playAnim(){
-  if(!anim.ok) return;
-  cancelAnimationFrame(anim.raf);
-  const dur = Math.min(7000, Math.max(3000, anim.T*1000));
-  const start = performance.now();
-  const tick = now => {
-    const f = Math.min(1, (now-start)/dur);
-    anim.now = anim.T*f; drawAnim();
-    if(f<1) anim.raf = requestAnimationFrame(tick);
-  };
-  anim.raf = requestAnimationFrame(tick);
+function similarHtml(raw){
+  const list = rankLessons(raw).filter(x=>x.sc >= 0.22).slice(0, 3);
+  if(!list.length) return "";
+  return `<p style="margin-bottom:4px">📘 題庫裡有<b>類似的題目</b>，可以先看看：</p><div class="sim">` +
+    list.map(x=>`<button class="chip" data-lesson="${x.L.id}">${esc(x.L.q.slice(0, 26))}…</button>`).join("") + "</div>";
 }
-function arrow(x1, y, x2, color, label){
-  ctx.strokeStyle = color; ctx.fillStyle = color; ctx.lineWidth = 6; ctx.lineCap = "round";
-  const len = x2-x1, dir = Math.sign(len);
-  if(Math.abs(len) > 14){
-    ctx.beginPath(); ctx.moveTo(x1,y); ctx.lineTo(x2-dir*14,y); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(x2,y); ctx.lineTo(x2-dir*18,y-10); ctx.lineTo(x2-dir*18,y+10); ctx.closePath(); ctx.fill();
+
+/* ---------- 牛頓第二定律模板（F = m × a） ---------- */
+const FORCE_RE = new RegExp(NUM + "\\s*(kgw|公斤重|牛頓|N(?![a-z]))", "gi");
+const MASS_RE = new RegExp(NUM + "\\s*(kg(?!w)|公斤(?!重)|千克)", "gi");
+const ACC_RE = new RegExp(NUM + "\\s*(?:m\\/s\\^?2|m\\/s²|m\\/s\\/s|公尺\\/秒\\^?2|公尺\\/秒²|公尺\\/秒平方|公尺每秒平方)", "gi");
+function parseNewton(raw){
+  const text = normalize(raw).split(/【\s*(?:參考|易錯|解題)/)[0];
+  const gm = text.match(/g\s*=\s*(\d+(?:\.\d+)?)/i), G = gm ? +gm[1] : 9.8;
+  const forces = [], masses = [], accs = [], notes = [];
+  for(const m of text.matchAll(FORCE_RE)){
+    const n = +m[1], kgw = /kgw|公斤重/i.test(m[2]), i = m.index, win = text.slice(Math.max(0, i-8), i + m[0].length + 6);
+    const friction = /摩擦/.test(win);
+    let dir = /向左|往左|向西|往西/.test(win) ? "left" : "right";
+    if(friction) dir = "left";
+    const v = kgw ? n*G : n;
+    if(kgw) notes.push(`${n} kgw 要換成牛頓：${n} × ${G} = ${fmt(v)} N`);
+    forces.push({v, dir, kind: friction ? "friction" : "applied", label: friction ? "摩擦力" : "拉力"});
+  }
+  for(const m of text.matchAll(MASS_RE)) masses.push(+m[1]);
+  for(const m of text.matchAll(ACC_RE)) accs.push(+m[1]);
+  const idx = Math.max(text.lastIndexOf("請問"), text.lastIndexOf("求"), text.lastIndexOf("則"));
+  const ask = idx>=0 ? text.slice(idx) : text.slice(-20);
+  let target = null;
+  if(/加速度/.test(ask)) target = "a";
+  else if(/質量/.test(ask)) target = "m";
+  else if(/重量|重力|多重/.test(ask) && masses.length && !forces.length) target = "W";
+  else if(/力|牛頓/.test(ask)) target = "F";
+  if(!target) return null;
+  const m = masses[0], a = accs[0];
+  const net = forces.reduce((s,f)=>s + (f.dir==="right" ? f.v : -f.v), 0);
+  if(target==="a" && m>0 && forces.length) return {target, m, forces, net, val: net/m, notes, G};
+  if(target==="F" && m>0 && typeof a==="number") return {target, m, a, val: m*a, notes, G};
+  if(target==="m" && forces.length && a>0) return {target, a, forces, net, val: Math.abs(net)/a, notes, G};
+  if(target==="W" && m>0) return {target, m, val: m*G, notes, G};
+  return null;
+}
+function newtonWalk(n, stuAns){
+  const F_ = s => `<div class="formula">${s}</div>`, steps = [];
+  const fl = n.forces || [];
+  const known = [];
+  if(n.m!=null && n.target!=="m") known.push(`質量 m = ${fmt(n.m)} kg`);
+  fl.forEach(f=>known.push(`${f.label} = ${fmt(f.v)} N（${f.dir==="right"?"向右":"向左"}）`));
+  if(n.a!=null) known.push(`加速度 a = ${fmt(n.a)} m/s²`);
+  const ask = {a:"加速度 a", F:"合力 F", m:"質量 m", W:"重量 W"}[n.target];
+  const noteHtml = n.notes.length ? `<div class="muted" style="font-size:14px">${n.notes.join("<br>")}</div>` : "";
+  steps.push({title:"第一步：列出已知數", anim:"start", html:`<ul>${known.map(k=>`<li>${k}</li>`).join("")}<li><b>要求的：${ask} = ?</b></li></ul>${noteHtml}`});
+  let ans = "";
+  if(n.target==="a" || n.target==="m"){
+    const rights = fl.filter(f=>f.dir==="right").map(f=>fmt(f.v)), lefts = fl.filter(f=>f.dir==="left").map(f=>fmt(f.v));
+    const expr = (rights.join(" + ")||"0") + (lefts.length ? " − " + lefts.join(" − ") : "");
+    steps.push({title:"第二步：先算合力", anim:"none", html: fl.length>1
+      ? "方向相同的力相加、方向相反的力相減（摩擦力和運動方向相反）：" + F_(`合力 = ${expr} = <b>${fmt(Math.abs(n.net))} N</b>`)
+      : `只有一個水平力，合力 ＝ <b>${fmt(Math.abs(n.net))} N</b>。`});
+    if(n.target==="a"){
+      steps.push({title:"第三步：牛頓第二定律", anim:"play", html: F_("合力 F = m × a → a = F ÷ m") + F_(`a = ${fmt(Math.abs(n.net))} ÷ ${fmt(n.m)} = <b>${fmt(Math.abs(n.val))} m/s²</b>`)});
+      ans = `a = ${fmt(Math.abs(n.val))} m/s²`;
+    }else{
+      steps.push({title:"第三步：牛頓第二定律", anim:"play", html: F_("F = m × a → m = F ÷ a") + F_(`m = ${fmt(Math.abs(n.net))} ÷ ${fmt(n.a)} = <b>${fmt(n.val)} kg</b>`)});
+      ans = `m = ${fmt(n.val)} kg`;
+    }
+  }else if(n.target==="F"){
+    steps.push({title:"第二步：牛頓第二定律", anim:"play", html: F_("合力 F = m × a") + F_(`F = ${fmt(n.m)} × ${fmt(n.a)} = <b>${fmt(n.val)} N</b>`)});
+    ans = `F = ${fmt(n.val)} N`;
   }else{
-    ctx.beginPath(); ctx.arc(x1,y,5,0,Math.PI*2); ctx.fill();
+    steps.push({title:"第二步：重量的公式", anim:"play", html: F_("W = m × g") + F_(`W = ${fmt(n.m)} × ${fmt(n.G)} = <b>${fmt(n.val)} N</b>`) + `也就是 ${fmt(n.m)} kgw（公斤重）。`});
+    ans = `W = ${fmt(n.val)} N`;
   }
-  ctx.font = "bold 17px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "center";
-  ctx.fillText(label, x1 + len/2, y-14);
-}
-function niceStep(range){
-  for(const s of [0.5,1,2,5,10,20,25,50,100,200,250,500,1000]) if(range/s <= 8) return s;
-  return Math.pow(10, Math.ceil(Math.log10(range/8)));
-}
-function drawCar(px, base){
-  ctx.fillStyle = "#dc2626";
-  ctx.beginPath(); ctx.roundRect(px-38, base-34, 76, 22, 6); ctx.fill();
-  ctx.beginPath(); ctx.roundRect(px-20, base-50, 40, 20, 8); ctx.fill();
-  ctx.fillStyle = "#bfdbfe"; ctx.fillRect(px-14, base-46, 12, 12); ctx.fillRect(px+2, base-46, 12, 12);
-  ctx.fillStyle = "#111827";
-  for(const dx of [-22,22]){ ctx.beginPath(); ctx.arc(px+dx, base-10, 9, 0, Math.PI*2); ctx.fill(); }
-  ctx.fillStyle = "#9ca3af";
-  for(const dx of [-22,22]){ ctx.beginPath(); ctx.arc(px+dx, base-10, 3.5, 0, Math.PI*2); ctx.fill(); }
-}
-function drawAnim(){
-  ctx.clearRect(0,0,CW,CH);
-  // 天空與道路
-  const g = ctx.createLinearGradient(0,0,0,190); g.addColorStop(0,"#e0f2fe"); g.addColorStop(1,"#f0f9ff");
-  ctx.fillStyle = g; ctx.fillRect(0,0,CW,190);
-  ctx.fillStyle = "#4b5563"; ctx.fillRect(0,190,CW,30);
-  ctx.strokeStyle = "#f9fafb"; ctx.setLineDash([18,14]); ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(0,205); ctx.lineTo(CW,205); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = "#1e3a8a"; ctx.font = "bold 16px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "left";
-  ctx.fillText("正方向（+）→", 16, 26);
-  if(!anim.ok){
-    ctx.fillStyle = "#6b7280"; ctx.font = "18px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "center";
-    ctx.fillText("這題的數字不夠，畫不出動畫", CW/2, 110);
-    return;
+  steps.push({title:"最後：答案", anim:"none", html:`<div class="answer">答案：${ans}</div><div style="margin-top:8px">F ＝ m × a 的 F 是物體受到的<b>合力</b>；合力越大加速度越大，質量越大加速度越小。</div>`});
+  let diag = null;
+  if(stuAns!==null){
+    const c = Math.abs(n.val), tips = [];
+    if(approx(stuAns, c)) diag = {cls:"diag-ok", html:"<b>答對了！👏</b>"};
+    else{
+      if(n.target==="a"){
+        if(approx(stuAns, Math.abs(n.net)*n.m)) tips.push("a ＝ F <b>÷</b> m，不是 F × m。");
+        if(approx(stuAns, n.m/Math.abs(n.net))) tips.push("除法上下顛倒了：a ＝ 合力 ÷ 質量。");
+        const ap = fl.filter(f=>f.kind!=="friction").reduce((s,f)=>s+f.v,0);
+        if(fl.length>1 && approx(stuAns, ap/n.m)) tips.push("要用<b>合力</b>算，不能只用拉力：記得減掉摩擦力。");
+        if(fl.length>1 && approx(stuAns, fl.reduce((s,f)=>s+f.v,0)/n.m)) tips.push("方向相反的力要<b>相減</b>，不是相加。");
+      }
+      if(n.target==="F"){ if(approx(stuAns, n.m/n.a)) tips.push("F ＝ m <b>×</b> a，不是 m ÷ a。"); }
+      if(n.target==="m"){ if(approx(stuAns, Math.abs(n.net)*n.a)) tips.push("m ＝ F <b>÷</b> a，不是 F × a。"); }
+      if(n.target==="W"){ if(approx(stuAns, n.m/n.G)) tips.push("W ＝ m <b>×</b> g。"); if(approx(stuAns, n.m)) tips.push(`${fmt(n.m)} 是質量（kg），重量要再乘 g：${fmt(n.m)} × ${fmt(n.G)}。`); }
+      diag = tips.length ? {cls:"diag-warn", html:tips.join("<br>"), known:true}
+        : {cls:"diag-bad", html:`你的答案 ${fmt(stuAns)} 和正確答案 ${fmt(c)} 不一樣，請從第一步開始對照看看。`};
+    }
+    steps.push({title:`你的答案（${fmt(stuAns)}）哪裡不一樣？`, anim:"none", cls:diag.cls, html:diag.html});
   }
-  const k = anim.k, t = anim.now, x = posAt(t), v = velAt(t);
-  const px = anim.origin + x*anim.scale;
-  // 刻度
-  const step = niceStep(anim.maxX-anim.minX);
-  ctx.fillStyle = "#374151"; ctx.font = "13px sans-serif"; ctx.textAlign = "center";
-  for(let m = Math.ceil(anim.minX/step)*step; m <= anim.maxX+1e-9; m += step){
-    const sx = anim.origin + m*anim.scale;
-    ctx.fillRect(sx-1, 220, 2, 7); ctx.fillText(fmt(m)+" m", sx, 242);
-  }
-  ctx.strokeStyle = "#16a34a"; ctx.lineWidth = 2; ctx.setLineDash([4,4]);
-  ctx.beginPath(); ctx.moveTo(anim.origin, 60); ctx.lineTo(anim.origin, 190); ctx.stroke(); ctx.setLineDash([]);
-  ctx.fillStyle = "#16a34a"; ctx.font = "13px 'Microsoft JhengHei',sans-serif"; ctx.fillText("出發點", anim.origin, 54);
-  drawCar(px, 205);
-  // 箭頭
-  const vLen = v/anim.maxV*140;
-  arrow(px, 128, px+vLen, "#2563eb", `v = ${fmt(v)} m/s`);
-  if(k.a!==0 && t < anim.T - 1e-9) arrow(px, 82, px + Math.sign(k.a)*90, "#ea580c", `a = ${fmt(k.a)} m/s²`);
-  else if(k.a!==0){ ctx.fillStyle = "#15803d"; ctx.font = "bold 17px 'Microsoft JhengHei',sans-serif"; ctx.textAlign="center"; ctx.fillText(Math.abs(v)<1e-6 ? "停下來了！" : "結束", px, 82); }
-  // 數據
-  ctx.fillStyle = "#111827"; ctx.font = "bold 16px Consolas,monospace"; ctx.textAlign = "right";
-  ctx.fillText(`t = ${t.toFixed(2)} s   v = ${fmt(v)} m/s   位置 = ${fmt(x)} m`, CW-14, 26);
-  // 速度–時間圖
-  const gx0 = 80, gx1 = CW-30, gy0 = 270, gy1 = CH-30;
-  const vEnd = velAt(anim.T);
-  let vMin = Math.min(0,k.v0,vEnd), vMax = Math.max(0,k.v0,vEnd); if(vMax-vMin<1e-9) vMax = vMin+1;
-  const X = tt => gx0 + (tt/anim.T)*(gx1-gx0);
-  const Y = vv => gy1 - (vv-vMin)/(vMax-vMin)*(gy1-gy0);
-  ctx.strokeStyle = "#9ca3af"; ctx.lineWidth = 1.5;
-  ctx.beginPath(); ctx.moveTo(gx0,gy0-6); ctx.lineTo(gx0,gy1); ctx.moveTo(gx0,Y(0)); ctx.lineTo(gx1+10,Y(0)); ctx.stroke();
-  ctx.fillStyle = "#374151"; ctx.font = "13px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "right";
-  ctx.textAlign = "left"; ctx.fillText("v (m/s)", gx0+6, gy0-10); ctx.textAlign = "right";
-  for(const vv of [...new Set([k.v0, vEnd, 0].map(z=>Math.round(z*1000)/1000))]) ctx.fillText(fmt(vv), gx0-6, Y(vv)+4);
-  ctx.textAlign = "center"; ctx.fillText("0", gx0, Y(0)+16); ctx.fillText(fmt(anim.T)+" s", gx1, Y(0)+16);
-  ctx.textAlign = "right"; ctx.fillText("t (s)", gx1+20, Y(0)-8);
-  // 面積（位移）
-  ctx.fillStyle = "rgba(37,99,235,.18)";
-  ctx.beginPath(); ctx.moveTo(X(0),Y(0)); ctx.lineTo(X(0),Y(k.v0)); ctx.lineTo(X(t),Y(v)); ctx.lineTo(X(t),Y(0)); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle = "#cbd5e1"; ctx.setLineDash([6,5]); ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(X(0),Y(k.v0)); ctx.lineTo(X(anim.T),Y(vEnd)); ctx.stroke(); ctx.setLineDash([]);
-  ctx.strokeStyle = "#2563eb"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.moveTo(X(0),Y(k.v0)); ctx.lineTo(X(t),Y(v)); ctx.stroke();
-  ctx.fillStyle = "#2563eb"; ctx.beginPath(); ctx.arc(X(t),Y(v),6,0,Math.PI*2); ctx.fill();
-  if(t>0){ ctx.fillStyle = "#1e3a8a"; ctx.font = "bold 14px 'Microsoft JhengHei',sans-serif"; ctx.textAlign = "center";
-    ctx.fillText(`面積 = 位移 = ${fmt(x)} m`, (X(0)+X(t))/2, (Y(0)+Math.min(Y(k.v0),Y(v)))/2 + 5); }
+  let scene;
+  if(n.target==="W") scene = {type:"forces", m:n.m, obj:"物體", surface:"none", static:true, forces:[{label:"重力 W", v:n.val, dir:"down", kind:"weight"}], showNet:false};
+  else if(n.target==="F") scene = {type:"forces", m:n.m, obj:"物體", surface:"none", v0:0, T:3, forces:[{label:"合力 F", v:n.val, dir:"right"}], showNet:false};
+  else scene = {type:"forces", m: n.target==="m" ? n.val : n.m, obj:"物體", surface: fl.some(f=>f.kind==="friction") ? "rough" : "smooth", v0:0, T:3, forces: fl};
+  const r = x => Math.round(x*1000)/1000;
+  const key = `newton|${n.target}|m=${n.m==null?"_":r(n.m)}|a=${n.a==null?"_":r(n.a)}|F=${fl.map(f=>f.dir[0]+r(f.v)).sort().join(",")}`;
+  return {steps, diag, scene, ans, key};
 }
 
 /* ---------- 主流程 ---------- */
@@ -609,30 +724,70 @@ function saveErrText(e){
   if(/unavailable|network/.test(code)) return "連不上雲端，請檢查網路";
   return (e && e.message) || "未知錯誤";
 }
+let skipLessonOnce = false;
 async function ask(){
   const raw = $("#q").value.trim();
-  if(!raw){ $("#q").focus(); return; }
+  if(!raw && !photoData){ $("#q").focus(); return; }
+  if(ocrBusy){ alert("照片還在辨識中，請等一下。"); return; }
   const go = $("#go"); go.classList.add("busy"); go.textContent = "老師思考中…";
+  $("#aiResult").hidden = true;
   try{
+    if(!raw){   // 只有照片、沒有文字 → 直接請 AI 老師看照片
+      $("#result").hidden = true; $("#unknown").hidden = true;
+      if(AI_URL) await runAI("", null, null); else showUnknown("照片沒有辨識出文字，請在題目欄打字。");
+      return;
+    }
     const p = parseQuestion(raw); p.raw = raw;
     const stuIn = normalize($("#stu").value).match(/-?\d+(?:\.\d+)?/);
     const stuAns = stuIn ? +stuIn[0] : p.stu;
+    // ① 單元題庫裡有這題 → 用老師準備好的動畫講解
+    const mt = skipLessonOnce ? null : matchLesson(raw);
+    skipLessonOnce = false;
+    if(mt && mt.pick){   // 很像題庫裡的題目 → 請學生確認是哪一題
+      $("#result").hidden = true;
+      $("#unknown").hidden = false;
+      $("#unknown").innerHTML = `<h2>📘 是不是這一題？</h2><p class="muted" style="margin-top:0">題庫裡有很像的題目，點一下就能看動畫講解：</p>
+        <div class="sim">${mt.pick.map(L=>`<button class="lesson" data-lesson="${L.id}"><span>${esc(L.q)}</span></button>`).join("")}</div>
+        <p style="margin-bottom:0"><button class="btn small" id="notThese">都不是，請老師解答</button></p>`;
+      $("#notThese").onclick = ()=>{ skipLessonOnce = true; ask(); };
+      return;
+    }
+    const L = mt && mt.L;
+    if(L){
+      const diag = showLesson(L, stuAns);
+      const wrongAns = (stuAns!==null && diag && diag.cls!=="diag-ok") ? fmt(stuAns) : null;
+      try{ await Store.record({key:"lesson|"+L.id, question:L.q, solved:true, type:"單元題庫", answer:L.ans.slice(0,380)}, wrongAns); }
+      catch(e){ console.warn(e); }
+      return;
+    }
+    // ② F = m × a 計算題 → 牛頓第二定律模板
+    const nw = parseNewton(raw);
+    if(nw){
+      const w = newtonWalk(nw, stuAns);
+      const wrongAns = (stuAns!==null && w.diag && w.diag.cls!=="diag-ok") ? fmt(stuAns) : null;
+      let badge;
+      try{
+        const {r, hit} = await Store.record({key:w.key, question:raw, solved:true, type:"牛頓第二定律", answer:w.ans}, wrongAns);
+        badge = bankBadge(true, hit, r);
+      }catch(e){ console.warn(e); badge = bankBadge(false, false, saveErrText(e)); }
+      showWalk({badges:badge, steps:w.steps, scene:w.scene});
+      return;
+    }
+    // ③ 等加速度直線運動模板
     const sol = p.target ? solve(p.q, p.target) : null;
     const key = bankKey(p);
     if(!sol || !sol.ok){
-      $("#result").hidden = true;
-      let note = "";
+      $("#result").hidden = true; $("#unknown").hidden = true;
+      let rec = null, note = "";
       try{
-        const {r, hit} = await Store.record({key, question:raw, solved:false, type:"未辨識"}, null);
-        note = `這題已經存進題庫的<b>「待 AI 解答」</b>清單${hit?`（已經被問過 ${r.askCount} 次）`:""}。`;
+        rec = await Store.record({key, question:raw, solved:false, type:"未辨識"}, null);
+        note = `這題已經存進題庫的<b>「待 AI 解答」</b>清單${rec.hit?`（已經被問過 ${rec.r.askCount} 次）`:""}。`;
       }catch(e){ note = `⚠ 這題沒能存進題庫（${saveErrText(e)}）。`; }
-      $("#unknown").hidden = false;
-      $("#unknown").innerHTML = `<h2>🤔 這題測試版還不會</h2>
-        <p>測試版目前只會<b>「等加速度直線運動」</b>（例如煞車、加速、求滑行距離），而且題目要有數字和單位（m/s、秒、m/s²、公尺）。</p>
-        <p>${note}正式版接上 AI 老師後，就會自動回答，並把答案存起來給下一個學生用。</p>`;
+      if(rec && rec.r.ai){ showAI(rec.r.ai, {fromBank:true, r:rec.r, stuAns}); return; }   // 題庫裡已有 AI 解答 → 0 token
+      if(AI_URL){ await runAI(raw, stuAns, rec ? rec.r.id : null); return; }
+      showUnknown(note + "老師會盡快補上解答（附動畫），之後再問就看得到。", raw);
       return;
     }
-    $("#unknown").hidden = true;
     const built = buildSteps(p, sol, stuAns);
     const correct = built.diag ? built.diag.cls==="diag-ok" : true;
     const wrongAns = (stuAns!==null && !correct) ? fmt(stuAns) : null;
@@ -642,15 +797,163 @@ async function ask(){
         answer:`${SYM[p.target]} = ${fmt(sol.k[p.target])} ${UNIT[p.target]}`}, wrongAns);
       badge = bankBadge(true, hit, r);
     }catch(e){ console.warn(e); badge = bankBadge(false, false, saveErrText(e)); }
-    $("#badges").innerHTML = badge;
-    cur = {steps: built.steps, idx: 0};
-    $("#result").hidden = false;
-    anim.k = sol.k; fitCanvas();
-    setupAnim(sol.k);
-    goStep(0, {scroll:false});
+    showWalk({badges:badge, steps:built.steps, scene:kinScene(sol.k)});
   }finally{
     go.classList.remove("busy"); go.textContent = "請老師解答";
   }
+}
+
+const esc = s => String(s==null?"":s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function showUnknown(note, raw){
+  $("#unknown").hidden = false;
+  $("#unknown").innerHTML = `<h2>🤔 這題還沒有現成的講解</h2>
+    <p>目前會的：<b>國三上第一、二章的單元題庫</b>（看「📘 單元動畫教室」）、<b>等加速度直線運動</b>計算題、<b>F = m × a</b> 計算題。</p>
+    <p>${note}</p>${raw ? similarHtml(raw) : ""}`;
+}
+
+/* ---------- 拍照 → 文字（在手機上辨識，免費） ---------- */
+const TESS_URL = "https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js";
+let photoData = null, ocrBusy = false, ocrWorker = null, ocrJob = 0;
+function loadScript(src){
+  return new Promise((ok, bad)=>{ const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = ()=>bad(new Error("載入失敗")); document.head.appendChild(s); });
+}
+function readImage(file){
+  return new Promise((ok, bad)=>{
+    const url = URL.createObjectURL(file), img = new Image();
+    img.onload = ()=>{ URL.revokeObjectURL(url); ok(img); };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); bad(new Error("這個檔案不是照片，或格式不支援")); };
+    img.src = url;
+  });
+}
+// 縮小照片（太大會很慢、也比較貴）
+function shrink(img, max){
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement("canvas");
+  c.width = Math.round(img.naturalWidth*k); c.height = Math.round(img.naturalHeight*k);
+  const g = c.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0,0,c.width,c.height); g.drawImage(img, 0, 0, c.width, c.height);
+  return c;
+}
+// 辨識出來的中文字中間常會多空格、斷行，整理一下
+function cleanOcr(t){
+  const CJK = "[\\u2E80-\\u9FFF\\uFF00-\\uFFEF\\u3000-\\u303F]";
+  return t.replace(new RegExp(`(${CJK})[ \\t]+(?=${CJK})`,"g"), "$1")
+          .replace(new RegExp(`(${CJK})[ \\t]+(?=[0-9A-Za-z])`,"g"), "$1")
+          .replace(new RegExp(`([0-9A-Za-z²])[ \\t]+(?=${CJK})`,"g"), "$1")
+          .replace(/\n{2,}/g, "\n").replace(/(\S)\n(?=\S)/g, "$1")
+          .replace(/m\s*\/\s*s\s*[?？2]\s*[?？]/g, "m/s²？")              // 「²」常被認成「?」
+          .replace(/m\/s\^?2(?![0-9])/g, "m/s²")
+          .replace(/\s*,\s*(?=[一-鿿])/g, "，").trim();
+}
+function setOcr(msg, pct){
+  $("#ocrMsg").innerHTML = msg;
+  $("#ocrBar").parentElement.hidden = pct==null;
+  if(pct!=null) $("#ocrBar").style.width = Math.round(pct*100) + "%";
+}
+async function onPhoto(file){
+  const job = ++ocrJob;
+  let img;
+  try{ img = await readImage(file); }catch(e){ alert(e.message); return; }
+  photoData = shrink(img, 1568).toDataURL("image/jpeg", 0.85);
+  $("#photoImg").src = photoData; $("#photoBox").hidden = false;
+  ocrBusy = true; setOcr("📖 正在看照片裡的字…（第一次會下載辨識資料，要等一下）", 0.02);
+  try{
+    if(!window.Tesseract) await loadScript(TESS_URL);
+    if(!ocrWorker) ocrWorker = await Tesseract.createWorker(["chi_tra","eng"], 1, {
+      logger: m => { if(job===ocrJob && typeof m.progress==="number")
+        setOcr(m.status==="recognizing text" ? "📖 辨識文字中…" : "⬇ 下載辨識資料中…（只有第一次）", m.status==="recognizing text" ? 0.3+m.progress*0.7 : m.progress*0.3); }
+    });
+    const {data} = await ocrWorker.recognize(shrink(img, 2000));
+    if(job!==ocrJob) return;   // 中途換了照片
+    const text = cleanOcr(data.text || "");
+    const zh = (text.match(/[一-鿿]/g)||[]).length;
+    if(zh >= 6){
+      $("#q").value = text;
+      setOcr(`✅ 辨識完成！<b>請檢查下面的題目文字</b>，有錯字直接改，再按「請老師解答」。`, null);
+    }else{
+      $("#q").value = "";
+      setOcr(AI_URL ? "⚠ 照片裡的字看不太清楚（可能是手寫或太模糊）。可以直接按「請老師解答」，交給 AI 老師看照片。"
+                    : "⚠ 照片裡的字看不太清楚（可能是手寫或太模糊），請重拍或直接打字。", null);
+    }
+  }catch(e){
+    console.warn(e);
+    if(job===ocrJob) setOcr("⚠ 文字辨識失敗（" + esc(e.message||e) + "）。" + (AI_URL ? "可以直接按「請老師解答」，交給 AI 老師看照片。" : "請直接打字。"), null);
+  }finally{
+    if(job===ocrJob) ocrBusy = false;
+  }
+}
+function clearPhoto(){ ocrJob++; ocrBusy = false; photoData = null; $("#photoBox").hidden = true; $("#photoImg").removeAttribute("src"); }
+
+/* ---------- AI 老師（經過中繼站呼叫 Claude；金鑰不放在網頁裡） ---------- */
+const AI_URL = (window.AI_URL || "").trim();
+async function runAI(raw, stuAns, id){
+  const box = $("#aiResult");
+  box.hidden = false;
+  box.innerHTML = `<p><span class="spin"></span> 🤖 AI 老師正在看題目，大約 10～40 秒…</p>`;
+  box.scrollIntoView({behavior:"smooth", block:"nearest"});
+  let ai;
+  try{
+    const res = await fetch(AI_URL, {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({question: raw, studentAnswer: stuAns, image: photoData})});
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok) throw new Error(data.error || ("錯誤代碼 " + res.status));
+    ai = data;
+  }catch(e){
+    box.innerHTML = `<h2>⚠ AI 老師暫時沒辦法回答</h2><p>${esc(e.message)}</p><p class="muted">可以過一下再按一次「請老師解答」。</p>`;
+    return;
+  }
+  const mistake = ai.mistake; delete ai.mistake;   // 「錯在哪」是給這個學生的，不存進題庫
+  let r = null, saved = "";
+  if(!ai.notPhysics){
+    try{
+      if(!id){   // 只有照片的題目：用 AI 整理出的題目文字建檔
+        const p = parseQuestion(ai.question); p.raw = ai.question;
+        const rec = await Store.record({key: bankKey(p), question: ai.question, solved:false, type:"未辨識"}, null);
+        id = rec.r.id; r = rec.r;
+        if(r.ai){ showAI(ai, {r, stuAns, mistake}); return; }
+      }
+      await Store.saveAI(id, ai);
+      saved = "ok";
+    }catch(e){ console.warn(e); saved = saveErrText(e); }
+  }
+  showAI(ai, {saved, stuAns, mistake});
+}
+function showAI(ai, o){
+  let badge;
+  if(o.fromBank) badge = `<span class="badge b-ok">✅ 題庫裡已有老師／AI 的解答（第 ${o.r.askCount} 次被問）· 0 token</span>` +
+    (o.r.status==="已審核" ? `<span class="badge b-ok">👩‍🏫 老師已審核</span>` : `<span class="badge b-warn">⏳ 等老師審核</span>`);
+  else badge = `<span class="badge b-info">🤖 AI 老師解答</span>` +
+    (o.saved==="ok" ? `<span class="badge b-info">已存進題庫，下次同一題不用再花 AI 費用</span><span class="badge b-warn">⏳ 等老師審核</span>`
+                    : o.saved ? `<span class="badge b-warn">⚠ 沒存進題庫（${esc(o.saved)}）</span>` : "");
+  if(ai.topic) badge += `<span class="badge b-info">${esc(ai.topic)}</span>`;
+  if(ai.notPhysics){   // 照片看不清楚、不是題目
+    const box = $("#aiResult"); box.hidden = false; $("#result").hidden = true;
+    box.innerHTML = `<div class="badges"><span class="badge b-warn">這題沒有存進題庫</span></div><h2>🤖 AI 老師</h2><p>${esc(ai.answer)}</p>`;
+    return;
+  }
+  const body = s => esc(s).replace(/\n/g, "<br>");
+  const steps = (ai.steps||[]).map((s, i)=>({title:`第 ${i+1} 步　${esc(s.title)}`, html: body(s.body), anim: i===0 ? "play" : "none"}));
+  if(ai.question && steps.length) steps[0].html = `<div class="muted" style="font-size:14px;margin-bottom:6px">題目：${esc(ai.question)}</div>` + steps[0].html;
+  steps.push({title:"答案", anim:"end", html:`<div class="answer">答案：${esc(ai.answer)}</div><p class="hint">AI 也可能算錯，老師審核過的解答會標示「👩‍🏫 老師已審核」。</p>`});
+  if(o.mistake) steps.push({title:"🔍 你的答案", anim:"none", cls:"diag-warn", html: body(o.mistake)});
+  else if(o.fromBank && o.stuAns!==null && o.stuAns!==undefined)
+    steps.push({title:`🔍 你的答案是 ${esc(fmt(o.stuAns))}`, anim:"none", html:"和上面的答案比對看看；不一樣的話，從第 1 步開始找哪裡不同。"});
+  showWalk({badges:badge, steps, scene:ai.scene, scroll:true});
+}
+
+/* ---------- 單元動畫教室 ---------- */
+const SCENE_ICON = {motion:"🚗", pendulum:"⏱️", forces:"📦", inertia:"🚌", action:"⛸️", circular:"🔄", gravity:"🌍"};
+function renderLearn(){
+  $("#learnList").innerHTML = (window.LESSON_UNITS||[]).map(u=>`<div class="unit"><h3>${esc(u.name)}</h3>` +
+    u.sections.map(s=>`<div class="sec"><b>${esc(s.name)}</b><div class="lessons">` +
+      s.items.map(L=>`<button class="lesson" data-lesson="${L.id}"><span class="ico">${SCENE_ICON[L.scene && L.scene.type] || "📘"}</span><span>${esc(L.q)}</span></button>`).join("") +
+    `</div></div>`).join("") + `</div>`).join("");
+}
+function openLesson(id, keepAns){
+  const L = LESSONS.find(x=>x.id===id); if(!L) return;
+  showTab("ask"); clearPhoto();
+  const s = keepAns ? normalize($("#stu").value).match(/-?\d+(?:\.\d+)?/) : null;
+  $("#q").value = L.q; if(!keepAns) $("#stu").value = "";
+  showLesson(L, s ? +s[0] : null, "", true);
 }
 
 /* ---------- 題庫畫面 ---------- */
@@ -701,7 +1004,8 @@ function renderBank(){
 
 function showTab(name){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on", b.dataset.tab===name));
-  $("#tab-ask").hidden = name!=="ask"; $("#tab-bank").hidden = name!=="bank";
+  $("#tab-ask").hidden = name!=="ask"; $("#tab-bank").hidden = name!=="bank"; $("#tab-learn").hidden = name!=="learn";
+  if(name==="learn") renderLearn();
   if(name==="bank"){ renderBank(); loadBankView(); }
 }
 
@@ -734,7 +1038,9 @@ if(Store.cloud){
 
 /* ---------- 事件 ---------- */
 document.querySelectorAll("nav button").forEach(b=>b.onclick = ()=>showTab(b.dataset.tab));
-document.querySelectorAll(".chip").forEach(c=>c.onclick = ()=>{ $("#q").value = EXAMPLES[+c.dataset.ex]; $("#stu").value = ""; });
+document.querySelectorAll(".chip[data-ex]").forEach(c=>c.onclick = ()=>{ clearPhoto(); $("#q").value = EXAMPLES[+c.dataset.ex]; $("#stu").value = ""; });
+$("#photo").onchange = e=>{ const f = e.target.files && e.target.files[0]; e.target.value = ""; if(f) onPhoto(f); };
+$("#photoDel").onclick = clearPhoto;
 $("#go").onclick = ask;
 $("#q").addEventListener("keydown", e=>{ if(e.key==="Enter" && (e.ctrlKey||e.metaKey)) ask(); });
 $("#next").onclick = ()=>goStep(cur.idx+1);
@@ -763,7 +1069,9 @@ $("#clear").onclick = async ()=>{
   if(!canEdit() || !confirm("確定要清空整個題庫嗎？這個動作無法復原。")) return;
   try{ await Store.clearAll(bankCache.map(b=>b.id)); loadBankView(); }catch(err){ alert("清空失敗：" + saveErrText(err)); }
 };
-drawAnim();
+$("#learnList").onclick = e=>{ const b = e.target.closest("[data-lesson]"); if(b) openLesson(b.dataset.lesson); };
+$("#unknown").onclick = e=>{ const b = e.target.closest("[data-lesson]"); if(b) openLesson(b.dataset.lesson, true); };
+Scenes.load(null);
 </script>
 </body>
 </html>

@@ -32,6 +32,17 @@ service cloud.firestore {
         && request.resource.data.wrong is map
         && request.resource.data.wrong.size() <= resource.data.wrong.size() + 1
         && request.resource.data.wrong.size() <= 100
+      ) || (
+        // AI 老師第一次回答 → 把解答存進「待 AI 解答」的題目，狀態只能變成「待審核」
+        resource.data.status == '待 AI 解答'
+        && !('ai' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ai','answer','solved','type','status','lastAt'])
+        && request.resource.data.status == '待審核'
+        && request.resource.data.solved == true
+        && request.resource.data.type == 'AI 解答'
+        && request.resource.data.answer is string && request.resource.data.answer.size() < 400
+        && request.resource.data.ai is map
+        && request.resource.data.ai.keys().hasOnly(['question','topic','answer','steps','notPhysics','scene'])
       );
 
       // 只有老師可以刪除
