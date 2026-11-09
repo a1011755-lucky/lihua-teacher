@@ -48,5 +48,19 @@ service cloud.firestore {
       // 只有老師可以刪除
       allow delete: if isAdmin();
     }
+
+    // 會考 3D 自然實驗室（science-lab）的瀏覽統計：每頁一筆，欄位只有 n（瀏覽次數）
+    match /siteStats/{page} {
+      // 所有人都可以看次數（頁面上要顯示）
+      allow read: if true;
+      // 只能「從 1 開始」或「每次 +1」，不能改成其他數字
+      allow create: if page.size() <= 60
+        && request.resource.data.keys().hasOnly(['n'])
+        && request.resource.data.n == 1;
+      allow update: if request.resource.data.keys().hasOnly(['n'])
+        && request.resource.data.n == resource.data.n + 1;
+      // 只有老師可以刪除（歸零）
+      allow delete: if isAdmin();
+    }
   }
 }
